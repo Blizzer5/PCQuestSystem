@@ -118,6 +118,12 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
             }
         }
     };
+
+    void ResetStepQuest()
+    {
+        bIsCompleted = false;
+    }
+
     virtual void ActivateActorMarker()
     {
         if (ActorAssociated)
@@ -363,6 +369,14 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
             ObjectivesArray.Emplace(MakeShareable(new FQuestStepGatherObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.ItemToGather, Elem.Value.AmountToGather)));
         }
         ObjectivesArray.Sort([](TSharedPtr<FQuestStepObjective> StepObjective1, TSharedPtr<FQuestStepObjective> StepObjective2) { return StepObjective1->StepObjectiveInsideQuestOrder < StepObjective2->StepObjectiveInsideQuestOrder; });
+    }
+
+    void ResetQuest()
+    {
+        for (TSharedPtr<FQuestStepObjective> Objective : ObjectivesArray)
+        {
+            Objective->ResetStepQuest();
+        }
     }
 
     bool IsQuestCompleted()

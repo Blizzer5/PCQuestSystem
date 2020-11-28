@@ -19,6 +19,7 @@ class PCQUESTSYSTEM_API UIconMarkerComponent : public UActorComponent
 public:	
 	// Sets default values for this component's properties
 	UIconMarkerComponent();
+	~UIconMarkerComponent();
 
 	UFUNCTION(BlueprintCallable, Category = "IconMarker")
 	void ActivateMarker();

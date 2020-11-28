@@ -156,6 +156,10 @@ void UQuestManager::ActiveQuest(int QuestIDToActivate)
 
     if (QuestToActivate.IsValid())
     {
+        if (QuestToActivate->IsQuestCompleted())
+        {
+            QuestToActivate->ResetQuest();
+        }
         ActiveQuests.Add(QuestToActivate);
         ActivateQuestObjectives(QuestToActivate);
 
