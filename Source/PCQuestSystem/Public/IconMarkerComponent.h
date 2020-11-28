@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "IconMarkerUMG.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 #include "IconMarkerComponent.generated.h"
 
 class UIconMarkerUMG;
@@ -30,6 +31,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = "IconMarker")
 	TSubclassOf<UIconMarkerUMG> MarkerUMGClass;
 private:
-    UIconMarkerUMG* MarkerUMG;
+    TSoftObjectPtr<UIconMarkerUMG> MarkerUMG;
 	bool bIsActive;
 };

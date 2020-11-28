@@ -21,9 +21,14 @@ UIconMarkerComponent::UIconMarkerComponent()
 }
 
 
+UIconMarkerComponent::~UIconMarkerComponent()
+{
+    MarkerUMG = nullptr;
+}
+
 void UIconMarkerComponent::ActivateMarker()
 {
-    if (!MarkerUMG)
+    if (!MarkerUMG.IsValid())
     {
         MarkerUMG = CreateWidget<UIconMarkerUMG>(GetWorld(), MarkerUMGClass.Get());
     }
@@ -37,7 +42,7 @@ void UIconMarkerComponent::ActivateMarker()
 void UIconMarkerComponent::DeactivateMarker()
 {
     bIsActive = false;
-    if (MarkerUMG)
+    if (MarkerUMG.IsValid())
     {
         MarkerUMG->RemoveFromViewport();
     }
