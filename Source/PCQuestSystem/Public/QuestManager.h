@@ -435,7 +435,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLeftLocation, EPlaces, LocationLe
 /**
  *
  */
-UCLASS()
+UCLASS(BlueprintType, meta = (BlueprintSpawnableComponent))
 class PCQUESTSYSTEM_API UQuestManager : public UActorComponent
 {
     GENERATED_BODY()
