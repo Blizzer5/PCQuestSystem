@@ -133,16 +133,13 @@ void UIconMarkerUMG::UpdateIcon()
     DistanceText->SetVisibility(bIsOnScreen && distanceToActor > 5 ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 
     float CurrentMetersDistance = currentDistanceToActor * 0.01f;
-    if ((bIsCurrentlyOnScreen != bIsOnScreen))
+    bool bShouldFadeDistance = metersDistance < DistanceToFade || !bIsOnScreen;
+    if (bIsDistanceFaded != bShouldFadeDistance)
     {
-        PlayAnimation(DistanceFadeAnimation, 0.f, 1, bIsOnScreen ? EUMGSequencePlayMode::Reverse : EUMGSequencePlayMode::Forward);
-    }
-    else if (distanceToActor != currentDistanceToActor && ((metersDistance < 5 && CurrentMetersDistance > 5) || (metersDistance > 5 && CurrentMetersDistance < 5)))
-    {
-        PlayAnimation(DistanceFadeAnimation, 0.f, 1, metersDistance > 5 ? EUMGSequencePlayMode::Reverse : EUMGSequencePlayMode::Forward);
+        PlayAnimation(DistanceFadeAnimation, 0.f, 1, bShouldFadeDistance ? EUMGSequencePlayMode::Forward : EUMGSequencePlayMode::Reverse);
     }
 
-    bIsCurrentlyOnScreen = bIsOnScreen;
+    bIsDistanceFaded = bShouldFadeDistance;
     currentDistanceToActor = distanceToActor;
 }
 

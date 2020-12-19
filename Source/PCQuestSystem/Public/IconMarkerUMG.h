@@ -42,8 +42,11 @@ private:
     UPROPERTY(EditAnywhere, Category = "IconMarkerUMG")
     float PercentageEdge = 0.8f;
 
-    bool bIsCurrentlyOnScreen;
-    float currentDistanceToActor;
+    UPROPERTY(EditAnywhere, Category = "IconMarkerUMG")
+    float DistanceToFade = 5.f;
+
+    bool bIsDistanceFaded = false;
+    float currentDistanceToActor = 0;
 protected:
     void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 

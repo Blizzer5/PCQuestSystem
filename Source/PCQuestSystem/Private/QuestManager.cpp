@@ -147,12 +147,9 @@ void UQuestManager::OnItemGathered(EItemTypes ItemGathered, float amountGathered
     }
 }
 
-void UQuestManager::ActiveQuest(int QuestIDToActivate)
+void UQuestManager::ActivateQuest(int QuestIDToActivate)
 {
-    TSharedPtr<FQuest> QuestToActivate = *AllQuests.FindByPredicate([&](const TSharedPtr<FQuest> quest)
-    {
-        return quest->QuestID == QuestIDToActivate;
-    });
+    TSharedPtr<FQuest> QuestToActivate = GetQuestByID(QuestIDToActivate);
 
     if (QuestToActivate.IsValid())
     {
@@ -264,9 +261,14 @@ void UQuestManager::BeginPlay()
     }
 }
 
-FQuest UQuestManager::GetQuestByID(int IDToGet)
+TSharedPtr<FQuest> UQuestManager::GetQuestByID(int IDToGet)
 {
-    return FQuest();
+    TSharedPtr<FQuest> QuestToReturn = *AllQuests.FindByPredicate([&](const TSharedPtr<FQuest> quest)
+    {
+        return quest->QuestID == IDToGet;
+    });
+
+    return QuestToReturn;
 }
 
 void UQuestManager::ActivateQuestObjectives(TSharedPtr<FQuest> Quest)

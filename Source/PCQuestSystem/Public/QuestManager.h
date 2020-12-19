@@ -91,8 +91,7 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     FGuid StepObjectiveID;
 
     /* Order that this objective will appear*/
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
-        int StepObjectiveInsideQuestOrder;
+    int StepObjectiveInsideQuestOrder;
 
     /** Quest Step XP to give */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
@@ -468,7 +467,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
         void OnItemGathered(EItemTypes ItemGathered, float amountGathered);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void ActiveQuest(int QuestIDToActivate);
+        void ActivateQuest(int QuestIDToActivate);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
         void RemoveActiveQuest(int QuestIDToRemove);
     UFUNCTION(BlueprintPure, Category = "QuestManager")
@@ -491,7 +490,8 @@ public:
         FString GetStepObjectiveDescription(FQuestStepObjective QuestStep);
 
 private:
-    FQuest GetQuestByID(int IDToGet);
+    
+    TSharedPtr<FQuest> GetQuestByID(int IDToGet);
     void ActivateQuestObjectives(TSharedPtr<FQuest> Quest);
     void OnQuestCompleted(TSharedPtr<FQuest> CompletedQuest);
     void OnQuestCompletedNextTick(TSharedPtr<FQuest> CompletedQuest);
