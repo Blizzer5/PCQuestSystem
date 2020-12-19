@@ -25,6 +25,8 @@ public:
 	void ActivateMarker();
 	UFUNCTION(BlueprintCallable, Category = "IconMarker")
 	void DeactivateMarker();
+
+	void SetMarkerUMGToUse(TSubclassOf<UIconMarkerUMG> markerToUse);
 public:
 	/* Icon to use */
 	UPROPERTY(EditAnywhere, Category = "IconMarker")

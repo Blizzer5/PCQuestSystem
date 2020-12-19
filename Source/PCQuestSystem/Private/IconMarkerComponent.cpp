@@ -11,15 +11,7 @@ UIconMarkerComponent::UIconMarkerComponent()
     // Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
     // off to improve performance if you don't need them.
     PrimaryComponentTick.bCanEverTick = false;
-
-    static ConstructorHelpers::FObjectFinder<UBlueprint> IconMarkerObjectClass(TEXT("WidgetBlueprint'/PCQuestSystem/UI/UMG_IconMarker'"));
-
-    if (IconMarkerObjectClass.Object)
-    {
-        MarkerUMGClass = (UClass*)IconMarkerObjectClass.Object->GeneratedClass;
-    }
 }
-
 
 UIconMarkerComponent::~UIconMarkerComponent()
 {
@@ -46,5 +38,10 @@ void UIconMarkerComponent::DeactivateMarker()
     {
         MarkerUMG->RemoveFromViewport();
     }
+}
+
+void UIconMarkerComponent::SetMarkerUMGToUse(TSubclassOf<UIconMarkerUMG> markerToUse)
+{
+    MarkerUMGClass = markerToUse;
 }
 

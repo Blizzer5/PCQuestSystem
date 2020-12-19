@@ -315,6 +315,7 @@ FString FQuestStepObjective::SplitEnumString(FString EnumString)
 void FQuestStepObjective::AddIconMarkerToAssociatedActor()
 {
     UIconMarkerComponent* iconMarkerComponent = NewObject<UIconMarkerComponent>(ActorAssociated, "");
+    iconMarkerComponent->SetMarkerUMGToUse(ObjectiveMarkerUMGClass);
     iconMarkerComponent->RegisterComponent();
 }
 

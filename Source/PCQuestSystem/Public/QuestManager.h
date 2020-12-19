@@ -75,10 +75,11 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
         bIsCompleted = false;
         StepObjectiveInsideQuestOrder = -1;
     }
-    FQuestStepObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, EQuestStepType StepType)
+    FQuestStepObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, EQuestStepType StepType, TSubclassOf<UIconMarkerUMG> MarkerUMG)
         : StepObjectiveInsideQuestOrder(StepObjectiveOrder),
         QuestStepRewards(rewards),
-        QuestStepType(StepType)
+        QuestStepType(StepType),
+        ObjectiveMarkerUMGClass(MarkerUMG)
     {
         StepObjectiveID = FGuid();
         bIsCompleted = false;
@@ -96,6 +97,9 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     /** Quest Step XP to give */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
     TMap<ERewardTypes, float> QuestStepRewards;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
+    TSubclassOf<UIconMarkerUMG> ObjectiveMarkerUMGClass;
 
     /** Quest Step Type */
     EQuestStepType QuestStepType;
@@ -158,8 +162,8 @@ struct PCQUESTSYSTEM_API FQuestStepGoToObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::GoTo;
     }
-    FQuestStepGoToObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, EPlaces Place)
-        :Super(StepObjectiveOrder, rewards, EQuestStepType::GoTo),
+    FQuestStepGoToObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, TSubclassOf<UIconMarkerUMG> MarkerUMG, EPlaces Place)
+        :Super(StepObjectiveOrder, rewards, EQuestStepType::GoTo, MarkerUMG),
         PlaceToGo(Place)
     {
         SetDescription();
@@ -189,8 +193,8 @@ struct PCQUESTSYSTEM_API FQuestStepTalkWithObjective : public FQuestStepObjectiv
     {
         QuestStepType = EQuestStepType::TalkWith;
     }
-    FQuestStepTalkWithObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, TSubclassOf<AActor> PawnToSpawnClass, FVector SpawnWorldPosition, FRotator SpawnWorldRotation, EEntityType EntityToTalk)
-        :Super(StepObjectiveOrder, rewards, EQuestStepType::TalkWith),
+    FQuestStepTalkWithObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, TSubclassOf<UIconMarkerUMG> MarkerUMG, TSubclassOf<AActor> PawnToSpawnClass, FVector SpawnWorldPosition, FRotator SpawnWorldRotation, EEntityType EntityToTalk)
+        :Super(StepObjectiveOrder, rewards, EQuestStepType::TalkWith, MarkerUMG),
         PawnToSpawnWhenActive(PawnToSpawnClass),
         WorldPositionToSpawn(SpawnWorldPosition),
         WorldRotationToSpawn(SpawnWorldRotation),
@@ -232,8 +236,8 @@ struct PCQUESTSYSTEM_API FQuestStepKillObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Kill;
     }
-    FQuestStepKillObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, EEntityType EntityKill, int KillAmount)
-        :Super(StepObjectiveOrder, rewards, EQuestStepType::Kill),
+    FQuestStepKillObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, TSubclassOf<UIconMarkerUMG> MarkerUMG, EEntityType EntityKill, int KillAmount)
+        :Super(StepObjectiveOrder, rewards, EQuestStepType::Kill, MarkerUMG),
         EntityToKill(EntityKill),
         AmountToKill(KillAmount)
     {
@@ -267,8 +271,8 @@ struct PCQUESTSYSTEM_API FQuestStepGatherObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Gather;
     }
-    FQuestStepGatherObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, EItemTypes ItemGather, int GaterAmount)
-        :Super(StepObjectiveOrder, rewards, EQuestStepType::Gather),
+    FQuestStepGatherObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, TSubclassOf<UIconMarkerUMG> MarkerUMG, EItemTypes ItemGather, int GaterAmount)
+        :Super(StepObjectiveOrder, rewards, EQuestStepType::Gather, MarkerUMG),
         ItemToGather(ItemGather),
         AmountToGather(GaterAmount)
     {
@@ -350,22 +354,22 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
         TArray<FQuestStepObjective> Objectives;
         for (auto& Elem : GoToObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGoToObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.PlaceToGo)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGoToObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGClass, Elem.Value.PlaceToGo)));
         }
 
         for (auto& Elem : TalkWithObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepTalkWithObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.PawnToSpawnWhenActive, Elem.Value.WorldPositionToSpawn, Elem.Value.WorldRotationToSpawn, Elem.Value.EntityToTalkWith)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepTalkWithObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGClass, Elem.Value.PawnToSpawnWhenActive, Elem.Value.WorldPositionToSpawn, Elem.Value.WorldRotationToSpawn, Elem.Value.EntityToTalkWith)));
         }
 
         for (auto& Elem : KillObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepKillObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.EntityToKill, Elem.Value.AmountToKill)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepKillObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGClass, Elem.Value.EntityToKill, Elem.Value.AmountToKill)));
         }
 
         for (auto& Elem : GatherObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGatherObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.ItemToGather, Elem.Value.AmountToGather)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGatherObjective(Elem.Key, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGClass, Elem.Value.ItemToGather, Elem.Value.AmountToGather)));
         }
         ObjectivesArray.Sort([](TSharedPtr<FQuestStepObjective> StepObjective1, TSharedPtr<FQuestStepObjective> StepObjective2) { return StepObjective1->StepObjectiveInsideQuestOrder < StepObjective2->StepObjectiveInsideQuestOrder; });
     }
