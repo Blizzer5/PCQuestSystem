@@ -119,7 +119,7 @@ void UQuestManager::OnEntityKilled(EEntityType EntityKilled)
     }
 }
 
-void UQuestManager::OnItemGathered(EItemTypes ItemGathered, float amountGathered)
+void UQuestManager::OnItemGathered(EQuestItemTypes ItemGathered, float amountGathered)
 {
     for (TSharedPtr<FQuest> quest : ActiveQuests)
     {

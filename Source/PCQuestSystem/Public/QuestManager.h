@@ -47,19 +47,19 @@ enum class EEntityType : uint8
 };
 
 UENUM(BlueprintType)
-enum class EItemTypes : uint8
-{
-    None,
-    Arrow,
-};
-
-UENUM(BlueprintType)
 enum class ERewardTypes : uint8
 {
     None,
     XP,
     Gold,
     Skill,
+};
+
+UENUM(BlueprintType)
+enum class EQuestItemTypes : uint8
+{
+    None,
+    Arrow,
 };
 
 USTRUCT(BlueprintType)
@@ -78,8 +78,8 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     FQuestStepObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, EQuestStepType StepType, TSubclassOf<UIconMarkerUMG> MarkerUMG)
         : StepObjectiveInsideQuestOrder(StepObjectiveOrder),
         QuestStepRewards(rewards),
-        QuestStepType(StepType),
-        ObjectiveMarkerUMGClass(MarkerUMG)
+        ObjectiveMarkerUMGClass(MarkerUMG),
+        QuestStepType(StepType)
     {
         StepObjectiveID = FGuid();
         bIsCompleted = false;
@@ -271,7 +271,7 @@ struct PCQUESTSYSTEM_API FQuestStepGatherObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Gather;
     }
-    FQuestStepGatherObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, TSubclassOf<UIconMarkerUMG> MarkerUMG, EItemTypes ItemGather, int GaterAmount)
+    FQuestStepGatherObjective(int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, TSubclassOf<UIconMarkerUMG> MarkerUMG, EQuestItemTypes ItemGather, int GaterAmount)
         :Super(StepObjectiveOrder, rewards, EQuestStepType::Gather, MarkerUMG),
         ItemToGather(ItemGather),
         AmountToGather(GaterAmount)
@@ -281,7 +281,7 @@ struct PCQUESTSYSTEM_API FQuestStepGatherObjective : public FQuestStepObjective
 
     /** What we want to gather */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
-        EItemTypes ItemToGather;
+        EQuestItemTypes ItemToGather;
 
     /* How many we want to gather */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
@@ -469,7 +469,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
         void OnEntityKilled(EEntityType EntityKilled);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnItemGathered(EItemTypes ItemGathered, float amountGathered);
+        void OnItemGathered(EQuestItemTypes ItemGathered, float amountGathered);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
         void ActivateQuest(int QuestIDToActivate);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")

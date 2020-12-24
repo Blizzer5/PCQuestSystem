@@ -18,7 +18,11 @@
 		{
 			"Name": "PCQuestSystem",
 			"Type": "Runtime",
-			"LoadingPhase": "PreDefault"
+			"LoadingPhase": "PreDefault",
+			"AdditionalDependencies": [
+				"Engine",
+				"UMG"
+			]
 		}
 	]
 }
