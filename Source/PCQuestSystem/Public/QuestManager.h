@@ -98,11 +98,11 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
     TMap<ERewardTypes, float> QuestStepRewards;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
-    TSubclassOf<UIconMarkerUMG> ObjectiveMarkerUMGClass;
-
     /** Quest Step Type */
     EQuestStepType QuestStepType;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
+    TSubclassOf<UIconMarkerUMG> ObjectiveMarkerUMGClass;
 
     /* Step description */
     FString Description;
