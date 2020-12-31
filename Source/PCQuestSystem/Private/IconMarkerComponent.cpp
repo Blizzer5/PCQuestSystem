@@ -4,6 +4,7 @@
 #include "IconMarkerComponent.h"
 #include "IconMarkerUMG.h"
 #include "UObject/UObjectGlobals.h"
+#include <PCQSBlueprintFunctionLibrary.h>
 
 // Sets default values for this component's properties
 UIconMarkerComponent::UIconMarkerComponent()
@@ -16,28 +17,56 @@ UIconMarkerComponent::UIconMarkerComponent()
 UIconMarkerComponent::~UIconMarkerComponent()
 {
     MarkerUMG = nullptr;
+
+    UPCQSBlueprintFunctionLibrary::RemoveIconMarkerComponent(this);
+}
+
+void UIconMarkerComponent::BeginPlay()
+{
+    Super::BeginPlay();
+
+    UPCQSBlueprintFunctionLibrary::AddIconMarkerComponent(this);
 }
 
 void UIconMarkerComponent::ActivateMarker()
 {
-    if (!MarkerUMG.IsValid())
+    if (bShowOnScreen)
     {
-        MarkerUMG = CreateWidget<UIconMarkerUMG>(GetWorld(), MarkerUMGClass.Get());
-    }
+        if (!MarkerUMG.IsValid())
+        {
+            MarkerUMG = CreateWidget<UIconMarkerUMG>(GetWorld(), MarkerUMGClass.Get());
+        }
 
-    bIsActive = true;
-    MarkerUMG->SetMarkerOwner(GetOwner());
-    MarkerUMG->AddToViewport();
-    MarkerUMG->PlayWidgetFadeAnimation();
+        bShowingOnScreen = true;
+        MarkerUMG->SetMarkerIconImage(MarkerIcon);
+        MarkerUMG->SetMarkerOwner(GetOwner());
+        MarkerUMG->AddToViewport();
+        MarkerUMG->PlayWidgetFadeAnimation();
+    }
 }
 
 void UIconMarkerComponent::DeactivateMarker()
 {
-    bIsActive = false;
+    bShowingOnScreen = false;
     if (MarkerUMG.IsValid())
     {
         MarkerUMG->RemoveFromViewport();
     }
+}
+
+bool UIconMarkerComponent::ShouldShowOnScreen()
+{
+    return bShowOnScreen;
+}
+
+bool UIconMarkerComponent::ShouldShowOnCompass()
+{
+    return bShowOnCompass;
+}
+
+UTexture2D* UIconMarkerComponent::GetMarkerIcon()
+{
+    return MarkerIcon;
 }
 
 void UIconMarkerComponent::SetMarkerUMGToUse(TSubclassOf<UIconMarkerUMG> markerToUse)

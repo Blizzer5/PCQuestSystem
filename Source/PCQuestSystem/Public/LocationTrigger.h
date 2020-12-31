@@ -6,6 +6,7 @@
 #include "Engine/TriggerBase.h"
 #include "QuestManager.h"
 #include "Engine/TriggerBox.h"
+#include "IconMarkerComponent.h"
 #include "LocationTrigger.generated.h"
 
 
@@ -18,6 +19,9 @@ class PCQUESTSYSTEM_API ALocationTrigger : public ATriggerBox
     GENERATED_BODY()
 
     ALocationTrigger();
+
+    UPROPERTY(EditAnywhere, Category = "Location Trigger")
+    UIconMarkerComponent* IconMarkerComponent;
 public:
     void NotifyActorBeginOverlap(AActor* OtherActor) override;
     void NotifyActorEndOverlap(AActor* OtherActor) override;

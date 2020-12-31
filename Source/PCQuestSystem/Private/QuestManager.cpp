@@ -335,7 +335,14 @@ void FQuestStepGoToObjective::Activate(UWorld* WorldContext)
             if (LocTrigger->GetLocation() == PlaceToGo)
             {
                 ActorAssociated = LocTrigger;
-                AddIconMarkerToAssociatedActor();
+                if(UIconMarkerComponent* LocationIconMarker =  ActorAssociated->FindComponentByClass<UIconMarkerComponent>())
+                {
+                    LocationIconMarker->ActivateMarker();
+                }
+                else
+                {
+                    AddIconMarkerToAssociatedActor();
+                }
             }
         }
     }

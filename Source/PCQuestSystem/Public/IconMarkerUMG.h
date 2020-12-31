@@ -24,6 +24,7 @@ public:
     void SetMarkerOwner(AActor* newMarkerOwner);
     void SetEdgePercentage(float newPercentage);
     void PlayWidgetFadeAnimation();
+    void SetMarkerIconImage(UTexture2D* IconToUse);
 private:
     UPROPERTY(meta = (BindWidget))
     UImage* IconMarker;

@@ -12,6 +12,8 @@
 ALocationTrigger::ALocationTrigger()
 {
     GetCollisionComponent()->SetCollisionObjectType(ECC_GameTraceChannel3);
+
+    IconMarkerComponent = CreateDefaultSubobject<UIconMarkerComponent>(TEXT("IconMarkerComponent"));
 }
 
 void ALocationTrigger::NotifyActorBeginOverlap(AActor* OtherActor)

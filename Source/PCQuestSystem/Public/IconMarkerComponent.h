@@ -21,10 +21,19 @@ public:
 	UIconMarkerComponent();
 	~UIconMarkerComponent();
 
+    // Called when the game starts
+    virtual void BeginPlay() override;
+
 	UFUNCTION(BlueprintCallable, Category = "IconMarker")
 	void ActivateMarker();
 	UFUNCTION(BlueprintCallable, Category = "IconMarker")
 	void DeactivateMarker();
+    UFUNCTION(BlueprintPure, Category = "IconMarker")
+        bool ShouldShowOnScreen();
+    UFUNCTION(BlueprintPure, Category = "IconMarker")
+        bool ShouldShowOnCompass();
+    UFUNCTION(BlueprintPure, Category = "IconMarker")
+		UTexture2D* GetMarkerIcon();
 
 	void SetMarkerUMGToUse(TSubclassOf<UIconMarkerUMG> markerToUse);
 public:
@@ -33,7 +42,12 @@ public:
 	UTexture2D* MarkerIcon;
 	UPROPERTY(EditAnywhere, Category = "IconMarker")
 	TSubclassOf<UIconMarkerUMG> MarkerUMGClass;
+	UPROPERTY(EditAnywhere, Category = "IconMarker")
+    bool bShowOnScreen;
+	UPROPERTY(EditAnywhere, Category = "IconMarker")
+    bool bShowOnCompass;
 private:
     TSoftObjectPtr<UIconMarkerUMG> MarkerUMG;
-	bool bIsActive;
+	bool bShowingOnScreen;
+	
 };
