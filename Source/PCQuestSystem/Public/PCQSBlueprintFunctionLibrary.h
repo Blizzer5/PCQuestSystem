@@ -4,7 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "IconMarkerComponent.h"
+#include <Components/IconMarkerComponent.h>
+#include "Actors/QuestManager.h"
 #include "PCQSBlueprintFunctionLibrary.generated.h"
 
 class UIconMarkerComponent;
@@ -24,6 +25,8 @@ public:
     static TArray<UIconMarkerComponent*> GetAllIconComponents();
     UFUNCTION(BlueprintCallable, Category = "PCQS Blueprint Function Library")
     static void GetActorXPositionOnCompass(APlayerController* PlayerController, AActor* ActorToCheck, float margin, float& XPosition);
+    UFUNCTION(BlueprintCallable, Category = "PCQS Blueprint Function Library")
+    static AQuestManager* GetWorldQuestManager(UObject* WorldContext);
 
     static void AddIconMarkerComponent(UIconMarkerComponent* Component);
     static void RemoveIconMarkerComponent(UIconMarkerComponent* Component);

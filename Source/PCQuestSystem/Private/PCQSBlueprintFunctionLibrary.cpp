@@ -2,8 +2,10 @@
 
 #include <PCQSBlueprintFunctionLibrary.h>
 #include "GameFramework/Actor.h"
-#include <IconMarkerComponent.h>
 #include "Kismet/KismetMathLibrary.h"
+#include <Components/IconMarkerComponent.h>
+#include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 TArray<UIconMarkerComponent*> UPCQSBlueprintFunctionLibrary::AllMarkerComponents = {};
 
@@ -131,6 +133,23 @@ void UPCQSBlueprintFunctionLibrary::GetActorXPositionOnCompass(APlayerController
     FVector2D RightVector2D = FVector2D(PlayerController->GetPawn()->GetActorRightVector().X, PlayerController->GetPawn()->GetActorRightVector().Y);
     FVector2D ForwardVector2D = FVector2D(PlayerController->GetPawn()->GetActorForwardVector().X, PlayerController->GetPawn()->GetActorForwardVector().Y);
     XPosition = UKismetMathLibrary::DotProduct2D(RightVector2D, normalized2D) / UKismetMathLibrary::DotProduct2D(ForwardVector2D, normalized2D) * margin;
+}
+
+AQuestManager* UPCQSBlueprintFunctionLibrary::GetWorldQuestManager(UObject* WorldContext)
+{
+    if (WorldContext && WorldContext->GetWorld())
+    {
+        TArray<AActor*> questManager;
+        UGameplayStatics::GetAllActorsOfClass(WorldContext, AQuestManager::StaticClass(), questManager);
+        if (questManager.Num() == 0)
+        {
+            UKismetSystemLibrary::PrintString(WorldContext, FString::Printf(TEXT("Tried to get Quest Manager but the world has none. Please put a QuestManager in the World.")));
+            return nullptr;
+        }
+        return Cast<AQuestManager>(questManager[0]);
+    }
+
+    return nullptr;
 }
 
 void UPCQSBlueprintFunctionLibrary::AddIconMarkerComponent(UIconMarkerComponent* Component)
