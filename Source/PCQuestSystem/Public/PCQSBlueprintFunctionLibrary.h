@@ -20,7 +20,7 @@ class PCQUESTSYSTEM_API UPCQSBlueprintFunctionLibrary : public UBlueprintFunctio
 
 public:
     UFUNCTION(BlueprintCallable, Category = "PCQS Blueprint Function Library")
-    static void GetActorInformationToPlayerController(APlayerController* PlayerController, AActor* ActorToCheck, FVector2D& OutScreenPosition, float& OutRotationAngleDegrees, float& DistanceToActor, bool& bIsOnScreen, float PercentageEdge = 1.0f);
+    static void GetActorInformationToPlayerController(APlayerController* PlayerController, AActor* ActorToCheck, bool bUseCameraLocation, FVector ActorToCheckOffSet, FVector2D& OutScreenPosition, float& OutRotationAngleDegrees, float& DistanceToActor, bool& bIsOnScreen, float PercentageEdge = 1.0f);
     UFUNCTION(BlueprintCallable, Category = "PCQS Blueprint Function Library")
     static TArray<UIconMarkerComponent*> GetAllIconComponents();
     UFUNCTION(BlueprintCallable, Category = "PCQS Blueprint Function Library")

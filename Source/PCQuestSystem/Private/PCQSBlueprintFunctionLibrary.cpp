@@ -9,7 +9,7 @@
 
 TArray<UIconMarkerComponent*> UPCQSBlueprintFunctionLibrary::AllMarkerComponents = {};
 
-void UPCQSBlueprintFunctionLibrary::GetActorInformationToPlayerController(APlayerController* PlayerController, AActor* ActorToCheck, FVector2D& OutScreenPosition, float& OutRotationAngleDegrees, float& DistanceToActor, bool& bIsOnScreen, float PercentageEdge /*= 1.0f*/)
+void UPCQSBlueprintFunctionLibrary::GetActorInformationToPlayerController(APlayerController* PlayerController, AActor* ActorToCheck, bool bUseCameraLocation, FVector ActorToCheckOffSet, FVector2D& OutScreenPosition, float& OutRotationAngleDegrees, float& DistanceToActor, bool& bIsOnScreen, float PercentageEdge /*= 1.0f*/)
 {
     bIsOnScreen = false;
     OutRotationAngleDegrees = 0.f;
@@ -20,7 +20,9 @@ void UPCQSBlueprintFunctionLibrary::GetActorInformationToPlayerController(APlaye
         return;
     }
 
-    const FVector2D ViewportSize = FVector2D(GEngine->GameViewport->Viewport->GetSizeXY());
+    int32 ViewportX, ViewportY;
+    PlayerController->GetViewportSize(ViewportX, ViewportY);
+    const FVector2D ViewportSize =  FVector2D(ViewportX, ViewportY);
     const FVector2D ViewportCenter = FVector2D(ViewportSize.X / 2, ViewportSize.Y / 2);
 
     UWorld* World = GEngine->GetWorldFromContextObject(PlayerController, EGetWorldErrorMode::LogAndReturnNull);
@@ -36,6 +38,7 @@ void UPCQSBlueprintFunctionLibrary::GetActorInformationToPlayerController(APlaye
     }
 
     FVector InLocation = ActorToCheck->GetActorLocation();
+    InLocation += ActorToCheckOffSet;
     // This doesn't work if we want to have local player with more than one viewport
     DistanceToActor = FMath::Abs(FVector::Distance(InLocation, PlayerController->GetPawn()->GetActorLocation()));
 
@@ -44,7 +47,7 @@ void UPCQSBlueprintFunctionLibrary::GetActorInformationToPlayerController(APlaye
 
     PlayerController->GetPlayerViewPoint(CameraLoc, CameraRot);
 
-    const FVector CameraToLoc = InLocation - CameraLoc;
+    const FVector CameraToLoc =  InLocation - (bUseCameraLocation ? CameraLoc : PlayerController->GetPawn()->GetActorLocation());
     FVector Forward = CameraRot.Vector();
     FVector Offset = CameraToLoc.GetSafeNormal();
 
@@ -66,6 +69,8 @@ void UPCQSBlueprintFunctionLibrary::GetActorInformationToPlayerController(APlaye
         PlayerController->ProjectWorldLocationToScreen(InLocation, ScreenPosition);
     }
 
+    
+
     // Check to see if it's on screen. If it is, ProjectWorldLocationToScreen is all we need, return it.
     if (ScreenPosition.X >= 0.f && ScreenPosition.X <= ViewportSize.X
         && ScreenPosition.Y >= 0.f && ScreenPosition.Y <= ViewportSize.Y && !bLocationIsBehindCamera)
@@ -77,10 +82,10 @@ void UPCQSBlueprintFunctionLibrary::GetActorInformationToPlayerController(APlaye
 
     ScreenPosition -= ViewportCenter;
 
-    float AngleRadians = FMath::Atan2(ScreenPosition.Y, ScreenPosition.X);
+    float AngleRadians = FMath::Abs(FMath::Atan2(ScreenPosition.Y, ScreenPosition.X));
     AngleRadians -= FMath::DegreesToRadians(90.f);
 
-    OutRotationAngleDegrees = FMath::RadiansToDegrees(AngleRadians) + 180.f;
+    OutRotationAngleDegrees = FMath::Abs(FMath::RadiansToDegrees(AngleRadians) + 180.f);
 
     float Cos = cosf(AngleRadians);
     float Sin = -sinf(AngleRadians);
