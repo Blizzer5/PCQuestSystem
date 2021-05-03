@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright © Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
@@ -38,4 +38,9 @@ public:
         void OnEntityKilled(EEntityType EntityKilled);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
         void OnItemGathered(EQuestItemTypes ItemGathered, float amountGathered);
+
+	UFUNCTION(BlueprintCallable)
+		void ActivateQuestDebug(int QuestID);
+private:
+	AQuestManager* QuestManager;
 };

@@ -1,10 +1,10 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright © Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/TriggerBase.h"
-#include "QuestComponent.h"
+#include "Components/QuestComponent.h"
 #include "Engine/TriggerBox.h"
 #include <Components/IconMarkerComponent.h>
 #include "LocationTrigger.generated.h"

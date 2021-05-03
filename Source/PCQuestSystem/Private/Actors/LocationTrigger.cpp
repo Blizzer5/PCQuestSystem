@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright © Pedro Costa, 2021. All rights reserved
 
 #include <Actors/LocationTrigger.h>
 #include "Engine/TriggerBox.h"
@@ -6,7 +6,7 @@
 #include "Engine/TriggerCapsule.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/ShapeComponent.h"
-#include "QuestComponent.h"
+#include "Components/QuestComponent.h"
 #include <Components/IconMarkerComponent.h>
 
 

@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright © Pedro Costa, 2021. All rights reserved
 
 #include "Actors/QuestManager.h"
 #include "Actors/LocationTrigger.h"
