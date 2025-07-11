@@ -1,7 +1,8 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #include "Components/QuestComponent.h"
 #include "PCQSBlueprintFunctionLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 UQuestComponent::UQuestComponent()
 {

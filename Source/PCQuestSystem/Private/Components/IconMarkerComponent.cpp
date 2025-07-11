@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #include <Components/IconMarkerComponent.h>
 #include "UObject/UObjectGlobals.h"
@@ -51,7 +51,7 @@ void UIconMarkerComponent::DeactivateMarker()
     bShowingOnScreen = false;
     if (MarkerUMG.IsValid())
     {
-        MarkerUMG->RemoveFromViewport();
+        MarkerUMG->RemoveFromParent();
     }
 }
 

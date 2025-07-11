@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
@@ -113,12 +113,13 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
         bIsCompleted = false;
         StepObjectiveInsideQuestOrder = -1;
     }
-    FQuestStepObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, EQuestStepType StepType, FIconMarkerInformation MarkerInfo)
-        : ParentQuestID(QuestID),
-        StepObjectiveInsideQuestOrder(StepObjectiveOrder),
-        QuestStepRewards(rewards),
+    FQuestStepObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> Rewards, EQuestStepType StepType, FIconMarkerInformation MarkerInfo)
+        : StepObjectiveInsideQuestOrder(StepObjectiveOrder),
+        QuestStepRewards(Rewards),
+        QuestStepType(StepType),
         ObjectiveMarkerUMGInformation(MarkerInfo),
-        QuestStepType(StepType)
+        ParentQuestID(QuestID)
+        
     {
         StepObjectiveID = FGuid();
         bIsCompleted = false;
