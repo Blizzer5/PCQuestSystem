@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
@@ -7,8 +7,8 @@
 #include "Actors/QuestManager.h"
 #include "QuestComponent.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEnteredLocation, EPlaces, LocationEntered);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLeftLocation, EPlaces, LocationLeft);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEnteredLocation, FGameplayTag, LocationEntered);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLeftLocation, FGameplayTag, LocationLeft);
 
 /**
  *
@@ -22,6 +22,8 @@ public:
     UQuestComponent();
     ~UQuestComponent();
 
+    UFUNCTION(BlueprintPure)
+    static UQuestComponent* GetQuestComponent(const AActor* Pawn);
     
     UPROPERTY(BlueprintAssignable, Category = "QuestManager")
         FOnEnteredLocation OnEnteredLocation;
@@ -29,17 +31,17 @@ public:
         FOnLeftLocation OnLeftLocation;
 
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnArrivedToPlace(EPlaces ArrivedPlace);
+        void OnArrivedToPlace(FGameplayTag ArrivedPlace);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnLeftPlace(EPlaces PlaceLeft);
+        void OnLeftPlace(FGameplayTag PlaceLeft);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnEntityTalkedTo(EEntityType TalkedEntity);
+        void OnEntityTalkedTo(FGameplayTag TalkedEntity);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnEntityKilled(EEntityType EntityKilled);
+        void OnEntityKilled(FGameplayTag EntityKilled);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnItemGathered(EQuestItemTypes ItemGathered, float amountGathered);
+        void OnItemGathered(FGameplayTag ItemGathered, float amountGathered);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Exec, BlueprintCallable)
 		void ActivateQuestDebug(int QuestID);
 private:
 	AQuestManager* QuestManager;

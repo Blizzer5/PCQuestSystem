@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
@@ -34,9 +34,9 @@ private:
     UPROPERTY(meta = (BindWidget))
     UTextBlock* DistanceText;
 
-    UPROPERTY(meta = (BindWidgetAnim))
+    UPROPERTY(meta = (BindWidgetAnim), Transient)
     UWidgetAnimation* WidgetFadeAnimation;
-    UPROPERTY(meta = (BindWidgetAnim))
+    UPROPERTY(meta = (BindWidgetAnim), Transient)
     UWidgetAnimation* DistanceFadeAnimation;
 
     AActor* MarkerOwner;

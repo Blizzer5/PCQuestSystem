@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include <UI/IconMarkerUMG.h>
 #include <Components/IconMarkerComponent.h>
+
+#include "GameplayTagContainer.h"
 #include "Engine/DataTable.h"
 #include "GameFramework/Actor.h"
 #include "QuestManager.generated.h"
@@ -28,38 +30,12 @@ enum class EQuestStepType : uint8
 };
 
 UENUM(BlueprintType)
-enum class EPlaces : uint8
-{
-    None,
-    Kanto,
-    Johto,
-};
-
-UENUM(BlueprintType)
-enum class EEntityType : uint8
-{
-    None,
-    // Persons
-    Adam,
-    Innkeeper,
-    // Enemies
-    Dinossaur,
-};
-
-UENUM(BlueprintType)
 enum class ERewardTypes : uint8
 {
     None,
     XP,
     Gold,
     Skill,
-};
-
-UENUM(BlueprintType)
-enum class EQuestItemTypes : uint8
-{
-    None,
-    Arrow,
 };
 
 USTRUCT(BlueprintType)
@@ -74,9 +50,9 @@ struct PCQUESTSYSTEM_API FIconMarkerInformation
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "bCreateMarker == true"))
     UTexture2D* IconToUse;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "bCreateMarker == true"))
-    bool bShowOnScreen;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "bCreateMarker == true"))
     bool bShowOnCompass;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "bCreateMarker == true"))
+    bool bShowOnScreen;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "bCreateMarker == true"))
     FVector MarkerToActorOffset;
 };
@@ -145,13 +121,13 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
         FIconMarkerInformation ObjectiveMarkerUMGInformation;
 
     /* Step description */
-    FString Description;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
+    FText Description;
 
     int ParentQuestID;
 
     FString SplitEnumString(FString EnumString);
-    virtual FString GetStepDescription() { return Description; };
-    virtual void SetDescription() {};
+    virtual FText GetStepDescription() { return Description; };
     /* Spawn/collect necessary actors */
 
     virtual void Activate(UWorld* WorldContext, AQuestManager* QuestManager) {};
@@ -210,20 +186,17 @@ struct PCQUESTSYSTEM_API FQuestStepGoToObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::GoTo;
     }
-    FQuestStepGoToObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, EPlaces Place)
+    FQuestStepGoToObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FGameplayTag Place)
         :Super(QuestID, StepObjectiveOrder, rewards, EQuestStepType::GoTo, MarkerInfo),
         PlaceToGo(Place)
     {
-        SetDescription();
     }
 
     /** Place that we want to go */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
-        EPlaces PlaceToGo;
+        FGameplayTag PlaceToGo;
 
     void OnArrivedToPlace() { bIsCompleted = true; };
-
-    void SetDescription() override;
 
     void Activate(UWorld* WorldContext, AQuestManager* QuestManager) override;
 
@@ -240,14 +213,13 @@ struct PCQUESTSYSTEM_API FQuestStepTalkWithObjective : public FQuestStepObjectiv
     {
         QuestStepType = EQuestStepType::TalkWith;
     }
-    FQuestStepTalkWithObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, TSubclassOf<AActor> PawnToSpawnClass, FVector SpawnWorldPosition, FRotator SpawnWorldRotation, EEntityType EntityToTalk)
+    FQuestStepTalkWithObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, TSubclassOf<AActor> PawnToSpawnClass, FVector SpawnWorldPosition, FRotator SpawnWorldRotation, FGameplayTag EntityToTalk)
         :Super(QuestID, StepObjectiveOrder, rewards, EQuestStepType::TalkWith, MarkerInfo),
         PawnToSpawnWhenActive(PawnToSpawnClass),
         WorldPositionToSpawn(SpawnWorldPosition),
         WorldRotationToSpawn(SpawnWorldRotation),
         EntityToTalkWith(EntityToTalk)
     {
-        SetDescription();
     }
 
     /* Actor to spawn when this step is activated */
@@ -261,11 +233,9 @@ struct PCQUESTSYSTEM_API FQuestStepTalkWithObjective : public FQuestStepObjectiv
         FRotator WorldRotationToSpawn;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
-        EEntityType EntityToTalkWith;
+        FGameplayTag EntityToTalkWith;
 
     void OnTalkedWithEntity() { bIsCompleted = true; }
-
-    void SetDescription() override;
 
     void Activate(UWorld* WorldContext, AQuestManager* QuestManager) override;
 
@@ -282,13 +252,12 @@ struct PCQUESTSYSTEM_API FQuestStepKillObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Kill;
     }
-    FQuestStepKillObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FSpawnInformation SpawnInfo, EEntityType EntityKill, int KillAmount)
+    FQuestStepKillObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FSpawnInformation SpawnInfo, FGameplayTag EntityKill, int KillAmount)
         :Super(QuestID, StepObjectiveOrder, rewards, EQuestStepType::Kill, MarkerInfo),
         SpawnInformation(SpawnInfo),
         EntityToKill(EntityKill),
         AmountToKill(KillAmount)
     {
-        SetDescription();
     }
 
     /* Actor to spawn when this step is activated */
@@ -297,7 +266,7 @@ struct PCQUESTSYSTEM_API FQuestStepKillObjective : public FQuestStepObjective
 
     /** Who/what we want to kill */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
-        EEntityType EntityToKill;
+        FGameplayTag EntityToKill;
 
     /* How many we want to kill */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
@@ -307,9 +276,6 @@ struct PCQUESTSYSTEM_API FQuestStepKillObjective : public FQuestStepObjective
 private:
     int CurrentlyKilled = 0;
 public:
-    void SetDescription() override;
-
-
     void Activate(UWorld* WorldContext, AQuestManager* QuestManager) override;
 
 };
@@ -325,17 +291,16 @@ struct PCQUESTSYSTEM_API FQuestStepGatherObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Gather;
     }
-    FQuestStepGatherObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, EQuestItemTypes ItemGather, int GaterAmount)
+    FQuestStepGatherObjective(int QuestID, int StepObjectiveOrder, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FGameplayTag ItemGather, int GaterAmount)
         :Super(QuestID, StepObjectiveOrder, rewards, EQuestStepType::Gather, MarkerInfo),
         ItemToGather(ItemGather),
         AmountToGather(GaterAmount)
     {
-        SetDescription();
     }
 
     /** What we want to gather */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
-        EQuestItemTypes ItemToGather;
+        FGameplayTag ItemToGather;
 
     /* How many we want to gather */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
@@ -344,8 +309,6 @@ struct PCQUESTSYSTEM_API FQuestStepGatherObjective : public FQuestStepObjective
     void OnItemGathered(float amountGathered) { CurrentlyGathered += amountGathered; bIsCompleted = CurrentlyGathered >= AmountToGather; }
 private:
     float CurrentlyGathered = 0;
-public:
-    void SetDescription() override;
 
 };
 
@@ -546,21 +509,21 @@ public:
         const TArray<FQuest> GetAllQuests();
 
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnArrivedToPlace(EPlaces ArrivedPlace);
+        void OnArrivedToPlace(FGameplayTag ArrivedPlace);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepArrivedToPlace(int StepID, int QuestID, EPlaces ArrivedPlace);
+        void OnQuestStepArrivedToPlace(int StepID, int QuestID, FGameplayTag ArrivedPlace);
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnEntityTalkedTo(EEntityType TalkedEntity);
+        void OnEntityTalkedTo(FGameplayTag TalkedEntity);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepEntityTalkedTo(int StepID, int QuestID, EEntityType TalkedEntity);
+        void OnQuestStepEntityTalkedTo(int StepID, int QuestID, FGameplayTag TalkedEntity);
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnEntityKilled(EEntityType EntityKilled);
+        void OnEntityKilled(FGameplayTag EntityKilled);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepEntityKilled(int StepID, int QuestID, EEntityType EntityKilled);
+        void OnQuestStepEntityKilled(int StepID, int QuestID, FGameplayTag EntityKilled);
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnItemGathered(EQuestItemTypes ItemGathered, float amountGathered);
+        void OnItemGathered(FGameplayTag ItemGathered, float amountGathered);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepItemGathered(int StepID, int QuestID, EQuestItemTypes ItemGathered, float amountGathered);
+        void OnQuestStepItemGathered(int StepID, int QuestID, FGameplayTag ItemGathered, float amountGathered);
 
     UFUNCTION(Server, Reliable)
         void SpawnActor(TSubclassOf<AActor> ActorToSpawn, FVector WorldPositionToSpawn, FRotator WorldRotationToSpawn);
@@ -577,7 +540,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "QuestManager")
         const FQuestStepObjective GetCurrentQuestCurrentObjective();
     UFUNCTION(BlueprintPure, Category = "QuestManager")
-        FString GetStepObjectiveDescription(FQuestStepObjective QuestStep);
+        FText GetStepObjectiveDescription(FQuestStepObjective QuestStep);
 
     void AddAssociatedActorToQuestStep(int StepQuestID, int QuestIDToGet, AActor* ActorToAdd);
     AActor* GetLastSpawnedActor();

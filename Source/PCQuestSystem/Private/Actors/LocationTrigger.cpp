@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #include <Actors/LocationTrigger.h>
 #include "Engine/TriggerBox.h"
@@ -37,7 +37,7 @@ void ALocationTrigger::NotifyActorEndOverlap(AActor* OtherActor)
     }
 }
 
-EPlaces ALocationTrigger::GetLocation()
+FGameplayTag ALocationTrigger::GetLocation()
 {
     return Location;
 }

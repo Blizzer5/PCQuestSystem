@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
@@ -25,8 +25,8 @@ class PCQUESTSYSTEM_API ALocationTrigger : public ATriggerBox
 public:
     void NotifyActorBeginOverlap(AActor* OtherActor) override;
     void NotifyActorEndOverlap(AActor* OtherActor) override;
-    EPlaces GetLocation();
+    FGameplayTag GetLocation();
 private:
     UPROPERTY(EditAnywhere)
-    EPlaces Location;
+    FGameplayTag Location;
 };

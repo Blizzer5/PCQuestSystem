@@ -16,7 +16,17 @@ UQuestComponent::~UQuestComponent()
 {
 }
 
-void UQuestComponent::OnArrivedToPlace(EPlaces ArrivedPlace)
+UQuestComponent* UQuestComponent::GetQuestComponent(const AActor* Pawn)
+{
+    if (Pawn == nullptr)
+    {
+        return nullptr;
+    }
+
+    return Pawn->GetComponentByClass<UQuestComponent>();
+}
+
+void UQuestComponent::OnArrivedToPlace(FGameplayTag ArrivedPlace)
 {
     OnEnteredLocation.Broadcast(ArrivedPlace);
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("OnArrivedToPlace")));
@@ -29,12 +39,12 @@ void UQuestComponent::OnArrivedToPlace(EPlaces ArrivedPlace)
     }
 }
 
-void UQuestComponent::OnLeftPlace(EPlaces PlaceLeft)
+void UQuestComponent::OnLeftPlace(FGameplayTag PlaceLeft)
 {
     OnLeftLocation.Broadcast(PlaceLeft);
 }
 
-void UQuestComponent::OnEntityTalkedTo(EEntityType TalkedEntity)
+void UQuestComponent::OnEntityTalkedTo(FGameplayTag TalkedEntity)
 {
     if (QuestManager)
     {
@@ -42,7 +52,7 @@ void UQuestComponent::OnEntityTalkedTo(EEntityType TalkedEntity)
     }
 }
 
-void UQuestComponent::OnEntityKilled(EEntityType EntityKilled)
+void UQuestComponent::OnEntityKilled(FGameplayTag EntityKilled)
 {
     if (QuestManager)
     {
@@ -50,7 +60,7 @@ void UQuestComponent::OnEntityKilled(EEntityType EntityKilled)
     }
 }
 
-void UQuestComponent::OnItemGathered(EQuestItemTypes ItemGathered, float amountGathered)
+void UQuestComponent::OnItemGathered(FGameplayTag ItemGathered, float amountGathered)
 {
     if (QuestManager)
     {

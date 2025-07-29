@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #include "Actors/QuestManager.h"
 #include "Actors/LocationTrigger.h"
@@ -87,7 +87,7 @@ void AQuestManager::RemoveActiveQuest_Implementation(int QuestIDToRemove)
     }));
 }
 
-void AQuestManager::OnArrivedToPlace_Implementation(EPlaces ArrivedPlace)
+void AQuestManager::OnArrivedToPlace_Implementation(FGameplayTag ArrivedPlace)
 {
     for (TSharedPtr<FQuest> quest : ActiveQuests)
     {
@@ -115,7 +115,7 @@ void AQuestManager::OnArrivedToPlace_Implementation(EPlaces ArrivedPlace)
     }
 }
 
-void AQuestManager::OnEntityTalkedTo_Implementation(EEntityType TalkedEntity)
+void AQuestManager::OnEntityTalkedTo_Implementation(FGameplayTag TalkedEntity)
 {
     for (TSharedPtr<FQuest> quest : ActiveQuests)
     {
@@ -143,7 +143,7 @@ void AQuestManager::OnEntityTalkedTo_Implementation(EEntityType TalkedEntity)
     }
 }
 
-void AQuestManager::OnEntityKilled_Implementation(EEntityType EntityKilled)
+void AQuestManager::OnEntityKilled_Implementation(FGameplayTag EntityKilled)
 {
     for (TSharedPtr<FQuest> quest : ActiveQuests)
     {
@@ -171,7 +171,7 @@ void AQuestManager::OnEntityKilled_Implementation(EEntityType EntityKilled)
     }
 }
 
-void AQuestManager::OnItemGathered_Implementation(EQuestItemTypes ItemGathered, float amountGathered)
+void AQuestManager::OnItemGathered_Implementation(FGameplayTag ItemGathered, float amountGathered)
 {
     for (TSharedPtr<FQuest> quest : ActiveQuests)
     {
@@ -257,7 +257,7 @@ void AQuestManager::SpawnActor_Implementation(TSubclassOf<AActor> ActorToSpawn, 
     LastSpawnedActor = GetWorld()->SpawnActor<AActor>(ActorToSpawn, WorldPositionToSpawn, WorldRotationToSpawn, SpawnParameters);
 }
 
-void AQuestManager::OnQuestStepArrivedToPlace_Implementation(int StepID, int QuestID, EPlaces ArrivedPlace)
+void AQuestManager::OnQuestStepArrivedToPlace_Implementation(int StepID, int QuestID, FGameplayTag ArrivedPlace)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
@@ -265,7 +265,7 @@ void AQuestManager::OnQuestStepArrivedToPlace_Implementation(int StepID, int Que
     GoToObjective.Get()->OnArrivedToPlace();
 }
 
-void AQuestManager::OnQuestStepEntityTalkedTo_Implementation(int StepID, int QuestID, EEntityType TalkedEntity)
+void AQuestManager::OnQuestStepEntityTalkedTo_Implementation(int StepID, int QuestID, FGameplayTag TalkedEntity)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
@@ -273,7 +273,7 @@ void AQuestManager::OnQuestStepEntityTalkedTo_Implementation(int StepID, int Que
     TalkToObjective.Get()->OnTalkedWithEntity();
 }
 
-void AQuestManager::OnQuestStepEntityKilled_Implementation(int StepID, int QuestID, EEntityType EntityKilled)
+void AQuestManager::OnQuestStepEntityKilled_Implementation(int StepID, int QuestID, FGameplayTag EntityKilled)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
@@ -281,7 +281,7 @@ void AQuestManager::OnQuestStepEntityKilled_Implementation(int StepID, int Quest
     KillObjective.Get()->OnEntityKilled();
 }
 
-void AQuestManager::OnQuestStepItemGathered_Implementation(int StepID, int QuestID, EQuestItemTypes ItemGathered, float amountGathered)
+void AQuestManager::OnQuestStepItemGathered_Implementation(int StepID, int QuestID, FGameplayTag ItemGathered, float amountGathered)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
@@ -312,7 +312,7 @@ bool AQuestManager::IsCurrentQuestStepObjective(FQuestStepObjective QuestStepToC
     return GetCurrentQuestCurrentObjective().StepObjectiveID == QuestStepToCompare.StepObjectiveID;
 }
 
-FString AQuestManager::GetStepObjectiveDescription(FQuestStepObjective QuestStep)
+FText AQuestManager::GetStepObjectiveDescription(FQuestStepObjective QuestStep)
 {
     return QuestStep.GetStepDescription();
 }
@@ -415,12 +415,8 @@ void FQuestStepObjective::AddIconMarkerToAssociatedActor()
         iconMarkerComponent->MarkerIcon = ObjectiveMarkerUMGInformation.IconToUse;
         iconMarkerComponent->ActorOffset = ObjectiveMarkerUMGInformation.MarkerToActorOffset;
         iconMarkerComponent->RegisterComponent();
+        iconMarkerComponent->ActivateMarker();
     }
-}
-
-void FQuestStepGoToObjective::SetDescription()
-{
-    Description = FText::Format(NSLOCTEXT("QuestNamespace", "QuestStepGoTo", "Go to {0}"), FText::FromString(SplitEnumString(UEnum::GetValueAsString(PlaceToGo)))).ToString();
 }
 
 void FQuestStepGoToObjective::Activate(UWorld* WorldContext, AQuestManager* QuestManager)
@@ -447,11 +443,6 @@ void FQuestStepGoToObjective::Activate(UWorld* WorldContext, AQuestManager* Ques
     }
 }
 
-void FQuestStepTalkWithObjective::SetDescription()
-{
-    Description = FText::Format(NSLOCTEXT("QuestNamespace", "QuestStepTalkWith", "Talk with {0}"), FText::FromString(SplitEnumString(UEnum::GetValueAsString(EntityToTalkWith)))).ToString();
-}
-
 void FQuestStepTalkWithObjective::Activate(UWorld* WorldContext, AQuestManager* QuestManager)
 {
     QuestManager->SpawnActor(PawnToSpawnWhenActive, WorldPositionToSpawn, WorldRotationToSpawn);
@@ -459,18 +450,6 @@ void FQuestStepTalkWithObjective::Activate(UWorld* WorldContext, AQuestManager* 
     if (QuestManager->GetLastSpawnedActor())
     {
         QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, QuestManager->GetLastSpawnedActor());
-    }
-}
-
-void FQuestStepKillObjective::SetDescription()
-{
-    if (AmountToKill <= 1)
-    {
-        Description = FText::Format(NSLOCTEXT("QuestNamespace", "QuestStepKill", "Kill {0}"), FText::FromString(SplitEnumString(UEnum::GetValueAsString(EntityToKill)))).ToString();
-    }
-    else
-    {
-        Description = FText::Format(NSLOCTEXT("QuestNamespace", "QuestStepKill", "Kill {0} {1}/{2}"), FText::FromString(SplitEnumString(UEnum::GetValueAsString(EntityToKill))), FText::AsNumber(CurrentlyKilled), FText::AsNumber(AmountToKill)).ToString();
     }
 }
 
@@ -490,18 +469,6 @@ void FQuestStepKillObjective::Activate(UWorld* WorldContext, AQuestManager* Ques
                 QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, QuestManager->GetLastSpawnedActor());
             }
         }
-    }
-}
-
-void FQuestStepGatherObjective::SetDescription()
-{
-    if (AmountToGather <= 1)
-    {
-        Description = FText::Format(NSLOCTEXT("QuestNamespace", "QuestStepGather", "Collect {0}"), FText::FromString(SplitEnumString(UEnum::GetValueAsString(ItemToGather)))).ToString();
-    }
-    else
-    {
-        Description = FText::Format(NSLOCTEXT("QuestNamespace", "QuestStepGather", "Collect {0} {1}/{2}"), FText::FromString(SplitEnumString(UEnum::GetValueAsString(ItemToGather))), FText::AsNumber(CurrentlyGathered), FText::AsNumber(AmountToGather)).ToString();
     }
 }
 
