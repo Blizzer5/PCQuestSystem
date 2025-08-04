@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/Actor.h"
+#include "Interface/QuestObject.h"
 
 
 AQuestManager::AQuestManager()
@@ -24,7 +25,7 @@ AQuestManager::~AQuestManager()
     AllQuests.Empty();
 }
 
-void AQuestManager::ActivateQuest_Implementation(int QuestIDToActivate)
+void AQuestManager::ActivateQuest_Implementation(int QuestIDToActivate, int StepIDToActivate)
 {
     TSharedPtr<FQuest> QuestToActivate = GetQuestByID(QuestIDToActivate);
 
@@ -34,15 +35,18 @@ void AQuestManager::ActivateQuest_Implementation(int QuestIDToActivate)
         {
             ResetQuest(QuestIDToActivate);
         }
-        AddActiveQuest(QuestIDToActivate);
+        AddActiveQuest(QuestIDToActivate, StepIDToActivate);
     }
 }
 
-void AQuestManager::OnAfterQuestActivated(int QuestIDToActivate)
+void AQuestManager::OnAfterQuestActivated(int QuestIDToActivate, bool bBroadcastEvent)
 {
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("OnAfterQuestActivated")));
-    TSharedPtr<FQuest> QuestToActivate = GetQuestByID(QuestIDToActivate);
-    OnQuestActivated.Broadcast(*QuestToActivate.Get());
+    if (bBroadcastEvent)
+    {
+        TSharedPtr<FQuest> QuestToActivate = GetQuestByID(QuestIDToActivate);
+        OnQuestActivated.Broadcast(*QuestToActivate.Get());
+    }
 }
 
 void AQuestManager::ResetQuest_Implementation(int QuestIDToActivate)
@@ -52,21 +56,24 @@ void AQuestManager::ResetQuest_Implementation(int QuestIDToActivate)
     QuestToActivate->ResetQuest();
 }
 
-void AQuestManager::AddActiveQuest_Implementation(int QuestIDToActivate)
+void AQuestManager::AddActiveQuest_Implementation(int QuestIDToActivate, int StepIDToActivate, bool bBroadcastEvent)
 {
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("AddActiveQuest")));
     ActiveQuests.Add(QuestIDToActivate);
 
-    ActivateQuestObjectives(QuestIDToActivate);
+    ActivateQuestObjectives(QuestIDToActivate, StepIDToActivate);
     ActivateQuestReferences(QuestIDToActivate);
-    SetCurrentActiveQuest(QuestIDToActivate);    
-    OnAfterQuestActivated(QuestIDToActivate);
+    SetCurrentActiveQuest(QuestIDToActivate);
+    OnAfterQuestActivated(QuestIDToActivate, bBroadcastEvent);
 }
 
 void AQuestManager::SetCurrentActiveQuest(int QuestIDToActivate)
 {
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("SetCurrentActiveQuest")));
-    CurrentActiveQuest = QuestIDToActivate;
+    if (CurrentActiveQuest == -1)
+    {
+        CurrentActiveQuest = QuestIDToActivate;
+    }
 }
 
 void AQuestManager::RemoveActiveQuest_Implementation(int QuestIDToRemove)
@@ -81,7 +88,7 @@ void AQuestManager::RemoveActiveQuest_Implementation(int QuestIDToRemove)
     }
 }
 
-void AQuestManager::OnArrivedToPlace_Implementation(FGameplayTag ArrivedPlace)
+void AQuestManager::OnArrivedToPlace_Implementation(FGameplayTag ArrivedPlace, APlayerController* ArrivedBy)
 {
     for (int QuestID : ActiveQuests)
     {
@@ -93,7 +100,7 @@ void AQuestManager::OnArrivedToPlace_Implementation(FGameplayTag ArrivedPlace)
                 TSharedPtr<FQuestStepGoToObjective> GoToObjective = StaticCastSharedPtr<FQuestStepGoToObjective>(QuestObjective);
                 if (GoToObjective && GoToObjective->PlaceToGo == ArrivedPlace)
                 {
-                    OnQuestStepArrivedToPlace(GoToObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, ArrivedPlace);
+                    OnQuestStepArrivedToPlace(GoToObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, ArrivedPlace, ArrivedBy);
 
                     if (GoToObjective->IsCompleted())
                     {
@@ -110,7 +117,7 @@ void AQuestManager::OnArrivedToPlace_Implementation(FGameplayTag ArrivedPlace)
     }
 }
 
-void AQuestManager::OnEntityTalkedTo_Implementation(FGameplayTag TalkedEntity)
+void AQuestManager::OnEntityTalkedTo_Implementation(FGameplayTag TalkedEntity, APlayerController* TalkedBy)
 {
     for (int QuestID : ActiveQuests)
     {
@@ -122,7 +129,7 @@ void AQuestManager::OnEntityTalkedTo_Implementation(FGameplayTag TalkedEntity)
                 TSharedPtr<FQuestStepTalkWithObjective> TalkToObjective = StaticCastSharedPtr<FQuestStepTalkWithObjective>(QuestObjective);
                 if (TalkToObjective && TalkToObjective->EntityToTalkWith == TalkedEntity)
                 {
-                    OnQuestStepEntityTalkedTo(TalkToObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, TalkedEntity);
+                    OnQuestStepEntityTalkedTo(TalkToObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, TalkedEntity, TalkedBy);
 
                     if (TalkToObjective->IsCompleted())
                     {
@@ -139,7 +146,7 @@ void AQuestManager::OnEntityTalkedTo_Implementation(FGameplayTag TalkedEntity)
     }
 }
 
-void AQuestManager::OnEntityKilled_Implementation(FGameplayTag EntityKilled)
+void AQuestManager::OnEntityKilled_Implementation(FGameplayTag EntityKilled, APlayerController* KilledBy)
 {
     for (int QuestID : ActiveQuests)
     {
@@ -151,7 +158,7 @@ void AQuestManager::OnEntityKilled_Implementation(FGameplayTag EntityKilled)
                 TSharedPtr<FQuestStepKillObjective> KillObjective = StaticCastSharedPtr<FQuestStepKillObjective>(QuestObjective);
                 if (KillObjective && KillObjective->EntityToKill == EntityKilled)
                 {
-                    OnQuestStepEntityKilled(KillObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, EntityKilled);
+                    OnQuestStepEntityKilled(KillObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, EntityKilled, KilledBy);
 
                     if (KillObjective->IsCompleted())
                     {
@@ -168,7 +175,7 @@ void AQuestManager::OnEntityKilled_Implementation(FGameplayTag EntityKilled)
     }
 }
 
-void AQuestManager::OnItemGathered_Implementation(FGameplayTag ItemGathered, float amountGathered)
+void AQuestManager::OnItemGathered_Implementation(FGameplayTag ItemGathered, float amountGathered, APlayerController* GatheredBy)
 {
     for (int QuestID : ActiveQuests)
     {
@@ -180,7 +187,7 @@ void AQuestManager::OnItemGathered_Implementation(FGameplayTag ItemGathered, flo
                 TSharedPtr<FQuestStepGatherObjective> ItemGatheredObjective = StaticCastSharedPtr<FQuestStepGatherObjective>(QuestObjective);
                 if (ItemGatheredObjective && ItemGatheredObjective->ItemToGather == ItemGathered)
                 {
-                    OnQuestStepItemGathered(ItemGatheredObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, ItemGathered, amountGathered);
+                    OnQuestStepItemGathered(ItemGatheredObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, ItemGathered, amountGathered, GatheredBy);
 
                     if (ItemGatheredObjective->IsCompleted())
                     {
@@ -197,7 +204,7 @@ void AQuestManager::OnItemGathered_Implementation(FGameplayTag ItemGathered, flo
     }
 }
 
-void AQuestManager::OnCatch_Implementation(FGameplayTag CatchTag)
+void AQuestManager::OnCatch_Implementation(FGameplayTag CatchTag, APlayerController* CatchedBy)
 {
     for (int QuestID : ActiveQuests)
     {
@@ -209,7 +216,7 @@ void AQuestManager::OnCatch_Implementation(FGameplayTag CatchTag)
                 TSharedPtr<FQuestStepCatchObjective> CatchObjective = StaticCastSharedPtr<FQuestStepCatchObjective>(QuestObjective);
                 if (CatchObjective && CatchObjective->AllowedTagToCatch.Contains(CatchTag))
                 {
-                    OnQuestStepCatch(CatchObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, CatchTag);
+                    OnQuestStepCatch(CatchObjective.Get()->StepObjectiveInsideQuestOrder, Quest.Get()->QuestID, CatchTag, CatchedBy);
 
                     if (CatchObjective->IsCompleted())
                     {
@@ -267,9 +274,10 @@ FQuestStepObjective AQuestManager::GetCurrentQuestCurrentObjective() const
 
 void AQuestManager::AddAssociatedActorToQuestStep(int StepQuestID, int QuestIDToGet, AActor* ActorToAdd)
 {
-    FTimerHandle TimerHandle;
-    FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &AQuestManager::AddAssociatedActorToQuestStepAfterTime, StepQuestID, QuestIDToGet, ActorToAdd);
-    GetWorld()->GetTimerManager().SetTimer(TimerHandle, TimerDelegate, 2.0f, false);
+    const TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestIDToGet);
+    const TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepQuestID, QuestWhereStepBelongs);
+    StepQuest->AddAssociatedActor(ActorToAdd);
+    StepQuest->AddIconMarkerToAssociatedActor();
 }
 
 const FQuest AQuestManager::GetCurrentActiveQuest()
@@ -284,44 +292,44 @@ void AQuestManager::SpawnActor_Implementation(TSubclassOf<AActor> ActorToSpawn, 
     LastSpawnedActor = GetWorld()->SpawnActor<AActor>(ActorToSpawn, WorldPositionToSpawn, WorldRotationToSpawn, SpawnParameters);
 }
 
-void AQuestManager::OnQuestStepArrivedToPlace_Implementation(int StepID, int QuestID, FGameplayTag ArrivedPlace)
+void AQuestManager::OnQuestStepArrivedToPlace_Implementation(int StepID, int QuestID, FGameplayTag ArrivedPlace, APlayerController* ArrivedBy)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
     TSharedPtr<FQuestStepGoToObjective> GoToObjective = StaticCastSharedPtr<FQuestStepGoToObjective>(StepQuest);
-    GoToObjective.Get()->OnArrivedToPlace();
+    GoToObjective.Get()->OnArrivedToPlace(ArrivedBy);
 }
 
-void AQuestManager::OnQuestStepEntityTalkedTo_Implementation(int StepID, int QuestID, FGameplayTag TalkedEntity)
+void AQuestManager::OnQuestStepEntityTalkedTo_Implementation(int StepID, int QuestID, FGameplayTag TalkedEntity, APlayerController* TalkedBy)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
     TSharedPtr<FQuestStepTalkWithObjective> TalkToObjective = StaticCastSharedPtr<FQuestStepTalkWithObjective>(StepQuest);
-    TalkToObjective.Get()->OnTalkedWithEntity();
+    TalkToObjective.Get()->OnTalkedWithEntity(TalkedBy);
 }
 
-void AQuestManager::OnQuestStepEntityKilled_Implementation(int StepID, int QuestID, FGameplayTag EntityKilled)
+void AQuestManager::OnQuestStepEntityKilled_Implementation(int StepID, int QuestID, FGameplayTag EntityKilled, APlayerController* KilledBy)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
     TSharedPtr<FQuestStepKillObjective> KillObjective = StaticCastSharedPtr<FQuestStepKillObjective>(StepQuest);
-    KillObjective.Get()->OnEntityKilled();
+    KillObjective.Get()->OnEntityKilled(KilledBy);
 }
 
-void AQuestManager::OnQuestStepItemGathered_Implementation(int StepID, int QuestID, FGameplayTag ItemGathered, float amountGathered)
+void AQuestManager::OnQuestStepItemGathered_Implementation(int StepID, int QuestID, FGameplayTag ItemGathered, float amountGathered, APlayerController* GatheredBy)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
     TSharedPtr<FQuestStepGatherObjective> GatherObjective = StaticCastSharedPtr<FQuestStepGatherObjective>(StepQuest);
-    GatherObjective.Get()->OnItemGathered(amountGathered);
+    GatherObjective.Get()->OnItemGathered(GatheredBy, amountGathered);
 }
 
-void AQuestManager::OnQuestStepCatch_Implementation(int StepID, int QuestID, FGameplayTag CatchTag)
+void AQuestManager::OnQuestStepCatch_Implementation(int StepID, int QuestID, FGameplayTag CatchTag, APlayerController* CatchedBy)
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestID);
     TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepID, QuestWhereStepBelongs);
     TSharedPtr<FQuestStepCatchObjective> GatherObjective = StaticCastSharedPtr<FQuestStepCatchObjective>(StepQuest);
-    GatherObjective.Get()->OnCatched();
+    GatherObjective.Get()->OnCatched(CatchedBy);
 }
 
 void AQuestManager::OnRep_OnCurrentActiveQuest()
@@ -329,12 +337,19 @@ void AQuestManager::OnRep_OnCurrentActiveQuest()
     AddActiveQuest(CurrentActiveQuest);
 }
 
-void AQuestManager::AddAssociatedActorToQuestStepAfterTime_Implementation(int StepQuestID, int QuestIDToGet, AActor* ActorToAdd)
+AActor* AQuestManager::GetStepQuestReference(int QuestID, FGameplayTag ReferenceTag)
 {
-    TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestIDToGet);
-    TSharedPtr<FQuestStepObjective> StepQuest = GetStepQuestByID(StepQuestID, QuestWhereStepBelongs);
-    StepQuest.Get()->AddAssociatedActor(ActorToAdd);
-    StepQuest.Get()->AddIconMarkerToAssociatedActor();
+    if (QuestReferences.Contains(QuestID))
+    {
+        for (const auto QuestReference : QuestReferences[QuestID].QuestActors)
+        {
+            if (QuestReference.ReferenceTag == ReferenceTag)
+            {
+                return QuestReference.ReferenceActor;
+            }
+        }
+    }
+    return nullptr;
 }
 
 bool AQuestManager::HasCurrentActiveQuest() const
@@ -396,7 +411,7 @@ void AQuestManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
     DOREPLIFETIME_CONDITION_NOTIFY(AQuestManager, CurrentActiveQuest, COND_InitialOnly, REPNOTIFY_Always);
-    DOREPLIFETIME(AQuestManager, ActiveQuests);
+    DOREPLIFETIME_CONDITION_NOTIFY(AQuestManager, ActiveQuests, COND_InitialOnly, REPNOTIFY_Always);
 }
 
 
@@ -425,16 +440,19 @@ TSharedPtr<FQuestStepObjective> AQuestManager::GetStepQuestByID(int IDToGet, TSh
     return QuestToSearch.Get()->GetStepObjectiveById(IDToGet);
 }
 
-void AQuestManager::ActivateQuestObjectives(int QuestID)
+void AQuestManager::ActivateQuestObjectives(int QuestID, int StepIDToActivate)
 {
     if (QuestID != -1)
     {
         TSharedPtr<FQuest> Quest = GetQuestByID(QuestID);
-        for (TSharedPtr<FQuestStepObjective> QuestObjective : Quest.Get()->ObjectivesArray)
+        for (int i = 0; i < StepIDToActivate; ++i)
         {
-            QuestObjective->Activate(GetWorld(), this);
+            const auto Objective = Quest.Get()->ObjectivesArray[i];
+            Objective->Activate(GetWorld(), this);
+            Objective->SetCompleted();
         }
-        Quest.Get()->ObjectivesArray[0].Get()->ActivateActorMarker();
+        const auto Objective = Quest.Get()->ObjectivesArray[StepIDToActivate];
+        Objective->Activate(GetWorld(), this);
     }
 }
 
@@ -446,8 +464,11 @@ void AQuestManager::ActivateQuestReferences(int QuestID)
         {
             for (auto QuestActor : QuestReferences[QuestID].QuestActors)
             {
-                QuestActor->SetActorEnableCollision(true);
-                QuestActor->SetActorHiddenInGame(false);
+                if (IQuestObject* ActorAsQuestObject = Cast<IQuestObject>(QuestActor.ReferenceActor))
+                {
+                    ActorAsQuestObject->ActivateObject();
+                    IQuestObject::Execute_BP_ActivateObject(QuestActor.ReferenceActor);
+                }
             }
         }
     }
@@ -461,8 +482,11 @@ void AQuestManager::DeactivateQuestReferences(int QuestID)
         {
             for (auto QuestActor : QuestReferences[QuestID].QuestActors)
             {
-                QuestActor->SetActorEnableCollision(false);
-                QuestActor->SetActorHiddenInGame(true);
+                if (IQuestObject* ActorAsQuestObject = Cast<IQuestObject>(QuestActor.ReferenceActor))
+                {
+                    ActorAsQuestObject->DeactivateObject();
+                    IQuestObject::Execute_BP_DeactivateObject(QuestActor.ReferenceActor);
+                }
             }
         }
     }
@@ -488,12 +512,12 @@ void AQuestManager::OnStepQuestCompleted_Implementation(int CompletedStepQuestID
 {
     TSharedPtr<FQuest> QuestWhereStepBelongs = GetQuestByID(QuestIDWhereStepBelongs);
     TSharedPtr<FQuestStepObjective> CompletedStepQuest = GetStepQuestByID(CompletedStepQuestID, QuestWhereStepBelongs);
-    FQuestStepObjective NextObjective = GetCurrentQuestCurrentObjective();
+    auto NextObjective = QuestWhereStepBelongs->GetCurrentObjectiveSharedPtr();
     if (NextObjective.IsValid())
     {
-        NextObjective.ActivateActorMarker();
+        NextObjective->Activate(GetWorld(), this);
     }
-    CompletedStepQuest->Deactivate();
+    CompletedStepQuest->SetCompleted();
     OnQuestStepCompletedDelegate.Broadcast(*CompletedStepQuest.Get(), *QuestWhereStepBelongs.Get());
 }
 
@@ -515,42 +539,65 @@ void FQuestStepObjective::AddIconMarkerToAssociatedActor()
         iconMarkerComponent->MarkerIcon = ObjectiveMarkerUMGInformation.IconToUse;
         iconMarkerComponent->ActorOffset = ObjectiveMarkerUMGInformation.MarkerToActorOffset;
         iconMarkerComponent->RegisterComponent();
-        iconMarkerComponent->ActivateMarker();
     }
 }
 
 void FQuestStepGoToObjective::Activate(UWorld* WorldContext, AQuestManager* QuestManager)
 {
-    TArray<AActor*> GoToLocations;
-    UGameplayStatics::GetAllActorsOfClass(WorldContext, ALocationTrigger::StaticClass(), GoToLocations);
-    for (AActor* LocationTrigger : GoToLocations)
+    AActor* ReferenceActor = nullptr;
+    if (ActorReference != FGameplayTag::EmptyTag)
     {
-        if (ALocationTrigger* LocTrigger = Cast<ALocationTrigger>(LocationTrigger))
+        ReferenceActor = QuestManager->GetStepQuestReference(ParentQuestID, ActorReference);
+    }
+
+    if (!ReferenceActor)
+    {
+        TArray<AActor*> GoToLocations;
+        UGameplayStatics::GetAllActorsOfClass(WorldContext, ALocationTrigger::StaticClass(), GoToLocations);
+        for (AActor* LocationTrigger : GoToLocations)
         {
-            if (LocTrigger->GetLocation() == PlaceToGo)
+            if (ALocationTrigger* LocTrigger = Cast<ALocationTrigger>(LocationTrigger))
             {
-                QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, LocationTrigger);
-                if (UIconMarkerComponent* LocationIconMarker = LocationTrigger->FindComponentByClass<UIconMarkerComponent>())
+                if (LocTrigger->GetLocation() == PlaceToGo)
                 {
-                    LocationIconMarker->ActivateMarker();
-                }
-                else
-                {
-                    AddIconMarkerToAssociatedActor();
+                    ReferenceActor = LocTrigger;
                 }
             }
         }
     }
+
+    if (ReferenceActor)
+    {
+        QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, ReferenceActor);
+        if (ReferenceActor->FindComponentByClass<UIconMarkerComponent>() == nullptr)
+        {
+            AddIconMarkerToAssociatedActor();
+        }
+    }
+    Super::Activate(WorldContext, QuestManager);
 }
 
 void FQuestStepTalkWithObjective::Activate(UWorld* WorldContext, AQuestManager* QuestManager)
 {
-    QuestManager->SpawnActor(PawnToSpawnWhenActive, WorldPositionToSpawn, WorldRotationToSpawn);
-
-    if (QuestManager->GetLastSpawnedActor())
+    if (PawnToSpawnWhenActive)
     {
-        QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, QuestManager->GetLastSpawnedActor());
+        QuestManager->SpawnActor(PawnToSpawnWhenActive, WorldPositionToSpawn, WorldRotationToSpawn);
+
+        if (QuestManager->GetLastSpawnedActor())
+        {
+            QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, QuestManager->GetLastSpawnedActor());
+        }
     }
+
+    if (ActorReference != FGameplayTag::EmptyTag)
+    {
+        if (AActor* ReferenceActor = QuestManager->GetStepQuestReference(ParentQuestID, ActorReference))
+        {
+            QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, ReferenceActor);
+        }
+    }
+    
+    Super::Activate(WorldContext, QuestManager);
 }
 
 void FQuestStepKillObjective::Activate(UWorld* WorldContext, AQuestManager* QuestManager)
@@ -570,6 +617,16 @@ void FQuestStepKillObjective::Activate(UWorld* WorldContext, AQuestManager* Ques
             }
         }
     }
+
+    if (ActorReference != FGameplayTag::EmptyTag)
+    {
+        if (AActor* ReferenceActor = QuestManager->GetStepQuestReference(ParentQuestID, ActorReference))
+        {
+            QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, ReferenceActor);
+        }
+    }
+
+    Super::Activate(WorldContext, QuestManager);
 }
 
 void FQuest::ActivateCurrentObjective(UWorld* ContextWorld, AQuestManager* QuestManager)

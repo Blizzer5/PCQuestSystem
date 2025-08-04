@@ -22,6 +22,8 @@ public:
     UQuestComponent();
     ~UQuestComponent();
 
+    virtual void BeginPlay() override;
+
     UFUNCTION(BlueprintPure)
     static UQuestComponent* GetQuestComponent(const AActor* Pawn);
     
@@ -40,9 +42,15 @@ public:
         void OnEntityKilled(FGameplayTag EntityKilled);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
         void OnItemGathered(FGameplayTag ItemGathered, float amountGathered);
+    UFUNCTION(BlueprintCallable, Category = "QuestManager")
+    void OnCatch(FGameplayTag CatchTag);
 
 	UFUNCTION(Exec, BlueprintCallable)
 		void ActivateQuestDebug(int QuestID);
 private:
+    APlayerController* GetController();
+    UPROPERTY()
+    APlayerController* OwnerPlayerController;
+    UPROPERTY()
 	AQuestManager* QuestManager;
 };

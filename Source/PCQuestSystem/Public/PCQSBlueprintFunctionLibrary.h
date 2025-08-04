@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
@@ -30,6 +30,9 @@ public:
 
     static void AddIconMarkerComponent(UIconMarkerComponent* Component);
     static void RemoveIconMarkerComponent(UIconMarkerComponent* Component);
+
+    static void ShowHiddenIconMarkerComponents();
+    static void HideIconMarkerComponents();
 private:
     static TArray<UIconMarkerComponent*> AllMarkerComponents;
 };

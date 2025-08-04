@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #include <PCQSBlueprintFunctionLibrary.h>
 #include "GameFramework/Actor.h"
@@ -165,4 +165,26 @@ void UPCQSBlueprintFunctionLibrary::AddIconMarkerComponent(UIconMarkerComponent*
 void UPCQSBlueprintFunctionLibrary::RemoveIconMarkerComponent(UIconMarkerComponent* Component)
 {
     AllMarkerComponents.Remove(Component);
+}
+
+void UPCQSBlueprintFunctionLibrary::ShowHiddenIconMarkerComponents()
+{
+    for (auto MarkerComponent : AllMarkerComponents)
+    {
+        if (MarkerComponent->IsMarkerActive())
+        {
+            MarkerComponent->ShowMarker();
+        }
+    }
+}
+
+void UPCQSBlueprintFunctionLibrary::HideIconMarkerComponents()
+{
+    for (auto MarkerComponent : AllMarkerComponents)
+    {
+        if (MarkerComponent->IsMarkerActive())
+        {
+            MarkerComponent->HideMarker();
+        }
+    }
 }

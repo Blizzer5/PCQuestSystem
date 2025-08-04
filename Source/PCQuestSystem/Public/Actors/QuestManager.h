@@ -9,7 +9,12 @@
 #include "GameplayTagContainer.h"
 #include "Engine/DataTable.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/GameStateBase.h"
+#include "Interface/QuestObject.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "QuestManager.generated.h"
+
+class IQuestObject;
 
 UENUM(BlueprintType)
 enum class EQuestType : uint8
@@ -90,14 +95,15 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
         bIsCompleted = false;
         StepObjectiveInsideQuestOrder = -1;
     }
-    FQuestStepObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, TMap<ERewardTypes, float> Rewards, EQuestStepType StepType, FIconMarkerInformation MarkerInfo)
+    FQuestStepObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, FGameplayTag ReferenceTag, bool bAllPlayers, TMap<ERewardTypes, float> Rewards, EQuestStepType StepType, FIconMarkerInformation MarkerInfo)
         : StepObjectiveInsideQuestOrder(StepObjectiveOrder),
+        ActorReference(ReferenceTag),
+        bRequiresAllPlayers(bAllPlayers),
         QuestStepRewards(Rewards),
         QuestStepType(StepType),
         ObjectiveMarkerUMGInformation(MarkerInfo),
         Description(QuestDescription),
         ParentQuestID(QuestID)
-        
     {
         StepObjectiveID = FGuid();
         bIsCompleted = false;
@@ -111,6 +117,13 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
 
     /* Order that this objective will appear*/
     int StepObjectiveInsideQuestOrder;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Quest)
+    FGameplayTag ActorReference = FGameplayTag::EmptyTag;
+
+    /** If we need all players to complete the quest */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Quest)
+    bool bRequiresAllPlayers = false;
 
     /** Quest Step XP to give */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
@@ -132,16 +145,43 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     FText GetStepDescription() { return Description; };
     /* Spawn/collect necessary actors */
 
-    virtual void Activate(UWorld* WorldContext, AQuestManager* QuestManager) {};
-    virtual void Deactivate() {
+    virtual void Activate(UWorld* WorldContext, AQuestManager* QuestManager)
+    {
+        ActivateActorMarker();
+    };
+    
+    virtual void Deactivate()
+    {
         for (AActor* AssociatedActor : ActorsAssociated)
         {
             if (UIconMarkerComponent* ActorMarkerComponent = AssociatedActor->FindComponentByClass<UIconMarkerComponent>())
             {
                 ActorMarkerComponent->DeactivateMarker();
             }
+            
+            if (IQuestObject* ActorAsQuestObject = Cast<IQuestObject>(AssociatedActor))
+            {
+                ActorAsQuestObject->DeactivateObject();
+            }
+            IQuestObject::Execute_BP_DeactivateObject(AssociatedActor);
         }
     };
+    
+    virtual void OnCompleted(APlayerController* CompletedBy)
+    {
+        if (CompletedBy == nullptr)
+        {
+            return;
+        }
+        
+        if (!bRequiresAllPlayers)
+        {
+            bIsCompleted = true;
+            return;
+        }
+        CompletedControllers.AddUnique(CompletedBy);
+        bIsCompleted = CompletedControllers.Num() == CompletedBy->GetWorld()->GetGameState()->PlayerArray.Num();
+    }
 
     void ResetStepQuest()
     {
@@ -160,6 +200,14 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
         }
     };
     bool IsCompleted() { return bIsCompleted; };
+    // This is so we can tell to the clients that this is done
+    // instead of having them control when should a step be completed which is server's job
+    // Also used when we load a quest and we want to activate an objective that is not the first one
+    void SetCompleted()
+    {
+        bIsCompleted = true;
+        Deactivate();
+    };
 
     void AddIconMarkerToAssociatedActor();
 
@@ -174,7 +222,10 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     }
 protected:
     bool bIsCompleted;
+    UPROPERTY()
     TArray<AActor*> ActorsAssociated;
+    UPROPERTY()
+    TArray<APlayerController*> CompletedControllers;
 };
 
 USTRUCT(BlueprintType)
@@ -188,8 +239,8 @@ struct PCQUESTSYSTEM_API FQuestStepGoToObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::GoTo;
     }
-    FQuestStepGoToObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FGameplayTag Place)
-        :Super(QuestID, StepObjectiveOrder, QuestDescription, rewards, EQuestStepType::GoTo, MarkerInfo),
+    FQuestStepGoToObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, FGameplayTag ReferenceTag, bool bAllPlayers, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FGameplayTag Place)
+        :Super(QuestID, StepObjectiveOrder, QuestDescription, ReferenceTag, bAllPlayers, rewards, EQuestStepType::GoTo, MarkerInfo),
         PlaceToGo(Place)
     {
     }
@@ -198,7 +249,7 @@ struct PCQUESTSYSTEM_API FQuestStepGoToObjective : public FQuestStepObjective
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
         FGameplayTag PlaceToGo;
 
-    void OnArrivedToPlace() { bIsCompleted = true; };
+    void OnArrivedToPlace(APlayerController* ArrivedBy) { OnCompleted(ArrivedBy); };
 
     void Activate(UWorld* WorldContext, AQuestManager* QuestManager) override;
 
@@ -215,8 +266,8 @@ struct PCQUESTSYSTEM_API FQuestStepTalkWithObjective : public FQuestStepObjectiv
     {
         QuestStepType = EQuestStepType::TalkWith;
     }
-    FQuestStepTalkWithObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, TSubclassOf<AActor> PawnToSpawnClass, FVector SpawnWorldPosition, FRotator SpawnWorldRotation, FGameplayTag EntityToTalk)
-        :Super(QuestID, StepObjectiveOrder, QuestDescription, rewards, EQuestStepType::TalkWith, MarkerInfo),
+    FQuestStepTalkWithObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, FGameplayTag ReferenceTag, bool bAllPlayers, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, TSubclassOf<AActor> PawnToSpawnClass, FVector SpawnWorldPosition, FRotator SpawnWorldRotation, FGameplayTag EntityToTalk)
+        :Super(QuestID, StepObjectiveOrder, QuestDescription, ReferenceTag, bAllPlayers, rewards, EQuestStepType::TalkWith, MarkerInfo),
         PawnToSpawnWhenActive(PawnToSpawnClass),
         WorldPositionToSpawn(SpawnWorldPosition),
         WorldRotationToSpawn(SpawnWorldRotation),
@@ -225,19 +276,19 @@ struct PCQUESTSYSTEM_API FQuestStepTalkWithObjective : public FQuestStepObjectiv
     }
 
     /* Actor to spawn when this step is activated */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "ActorReference == FGameplayTag::Empty"))
         TSubclassOf<AActor> PawnToSpawnWhenActive;
     /* Where to spawn the actor */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "ActorReference == FGameplayTag::Empty"))
         FVector WorldPositionToSpawn;
     /* Which rotation should the actor have */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "ActorReference == FGameplayTag::Empty"))
         FRotator WorldRotationToSpawn;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
         FGameplayTag EntityToTalkWith;
 
-    void OnTalkedWithEntity() { bIsCompleted = true; }
+    void OnTalkedWithEntity(APlayerController* TalkedBy) { OnCompleted(TalkedBy); }
 
     void Activate(UWorld* WorldContext, AQuestManager* QuestManager) override;
 
@@ -254,8 +305,8 @@ struct PCQUESTSYSTEM_API FQuestStepKillObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Kill;
     }
-    FQuestStepKillObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FSpawnInformation SpawnInfo, FGameplayTag EntityKill, int KillAmount)
-        :Super(QuestID, StepObjectiveOrder, QuestDescription, rewards, EQuestStepType::Kill, MarkerInfo),
+    FQuestStepKillObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, FGameplayTag ReferenceTag, bool bAllPlayers, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FSpawnInformation SpawnInfo, FGameplayTag EntityKill, int KillAmount)
+        :Super(QuestID, StepObjectiveOrder, QuestDescription, ReferenceTag, bAllPlayers, rewards, EQuestStepType::Kill, MarkerInfo),
         SpawnInformation(SpawnInfo),
         EntityToKill(EntityKill),
         AmountToKill(KillAmount)
@@ -263,7 +314,7 @@ struct PCQUESTSYSTEM_API FQuestStepKillObjective : public FQuestStepObjective
     }
 
     /* Actor to spawn when this step is activated */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective, meta = (EditCondition = "ActorReference == FGameplayTag::Empty"))
         FSpawnInformation SpawnInformation;
 
     /** Who/what we want to kill */
@@ -274,7 +325,14 @@ struct PCQUESTSYSTEM_API FQuestStepKillObjective : public FQuestStepObjective
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
         int AmountToKill;
 
-    void OnEntityKilled() { bIsCompleted = ++CurrentlyKilled >= AmountToKill; }
+    void OnEntityKilled(APlayerController* KilledBy)
+    {
+        bIsCompleted = ++CurrentlyKilled >= AmountToKill;
+        if (bIsCompleted)
+        {
+            OnCompleted(KilledBy);
+        }
+    }
 private:
     int CurrentlyKilled = 0;
 public:
@@ -293,8 +351,8 @@ struct PCQUESTSYSTEM_API FQuestStepGatherObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Gather;
     }
-    FQuestStepGatherObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FGameplayTag ItemGather, int GaterAmount)
-        :Super(QuestID, StepObjectiveOrder, QuestDescription, rewards, EQuestStepType::Gather, MarkerInfo),
+    FQuestStepGatherObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, FGameplayTag ReferenceTag, bool bAllPlayers, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, FGameplayTag ItemGather, int GaterAmount)
+        :Super(QuestID, StepObjectiveOrder, QuestDescription, ReferenceTag, bAllPlayers, rewards, EQuestStepType::Gather, MarkerInfo),
         ItemToGather(ItemGather),
         AmountToGather(GaterAmount)
     {
@@ -308,7 +366,15 @@ struct PCQUESTSYSTEM_API FQuestStepGatherObjective : public FQuestStepObjective
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
         float AmountToGather;
 
-    void OnItemGathered(float amountGathered) { CurrentlyGathered += amountGathered; bIsCompleted = CurrentlyGathered >= AmountToGather; }
+    void OnItemGathered(APlayerController* GatheredBy, float amountGathered)
+    {
+        CurrentlyGathered += amountGathered;
+        bIsCompleted = CurrentlyGathered >= AmountToGather;
+        if (bIsCompleted)
+        {
+            OnCompleted(GatheredBy);
+        }
+    }
 private:
     float CurrentlyGathered = 0;
 
@@ -325,8 +391,8 @@ struct PCQUESTSYSTEM_API FQuestStepCatchObjective : public FQuestStepObjective
     {
         QuestStepType = EQuestStepType::Catch;
     }
-    FQuestStepCatchObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, TArray<FGameplayTag> TagCatch)
-        :Super(QuestID, StepObjectiveOrder, QuestDescription, rewards, EQuestStepType::Catch, MarkerInfo),
+    FQuestStepCatchObjective(int QuestID, int StepObjectiveOrder, FText QuestDescription, FGameplayTag ReferenceTag, bool bAllPlayers, TMap<ERewardTypes, float> rewards, FIconMarkerInformation MarkerInfo, TArray<FGameplayTag> TagCatch)
+        :Super(QuestID, StepObjectiveOrder, QuestDescription, ReferenceTag, bAllPlayers, rewards, EQuestStepType::Catch, MarkerInfo),
         AllowedTagToCatch(TagCatch)
     {
     }
@@ -338,7 +404,14 @@ struct PCQUESTSYSTEM_API FQuestStepCatchObjective : public FQuestStepObjective
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
     int AmountNeeded = 1;
 
-    void OnCatched() { bIsCompleted = ++CurrentlyCatched >= AmountNeeded; }
+    void OnCatched(APlayerController* CatchedBy)
+    {
+        bIsCompleted = ++CurrentlyCatched >= AmountNeeded;
+        if (bIsCompleted)
+        {
+            OnCompleted(CatchedBy);
+        }
+    }
 private:
     int CurrentlyCatched = 0;
 
@@ -406,27 +479,27 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
         TArray<FQuestStepObjective> Objectives;
         for (auto& Elem : GoToObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGoToObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.PlaceToGo)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGoToObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.ActorReference, Elem.Value.bRequiresAllPlayers, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.PlaceToGo)));
         }
 
         for (auto& Elem : TalkWithObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepTalkWithObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.PawnToSpawnWhenActive, Elem.Value.WorldPositionToSpawn, Elem.Value.WorldRotationToSpawn, Elem.Value.EntityToTalkWith)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepTalkWithObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.ActorReference, Elem.Value.bRequiresAllPlayers, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.PawnToSpawnWhenActive, Elem.Value.WorldPositionToSpawn, Elem.Value.WorldRotationToSpawn, Elem.Value.EntityToTalkWith)));
         }
 
         for (auto& Elem : KillObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepKillObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.SpawnInformation, Elem.Value.EntityToKill, Elem.Value.AmountToKill)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepKillObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.ActorReference, Elem.Value.bRequiresAllPlayers, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.SpawnInformation, Elem.Value.EntityToKill, Elem.Value.AmountToKill)));
         }
 
         for (auto& Elem : GatherObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGatherObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.ItemToGather, Elem.Value.AmountToGather)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepGatherObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.ActorReference, Elem.Value.bRequiresAllPlayers, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.ItemToGather, Elem.Value.AmountToGather)));
         }
 
         for (auto& Elem : CatchObjectives)
         {
-            ObjectivesArray.Emplace(MakeShareable(new FQuestStepCatchObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.AllowedTagToCatch)));
+            ObjectivesArray.Emplace(MakeShareable(new FQuestStepCatchObjective(QuestID, Elem.Key, Elem.Value.Description, Elem.Value.ActorReference, Elem.Value.bRequiresAllPlayers, Elem.Value.QuestStepRewards, Elem.Value.ObjectiveMarkerUMGInformation, Elem.Value.AllowedTagToCatch)));
         }
         ObjectivesArray.Sort([](TSharedPtr<FQuestStepObjective> StepObjective1, TSharedPtr<FQuestStepObjective> StepObjective2) { return StepObjective1->StepObjectiveInsideQuestOrder < StepObjective2->StepObjectiveInsideQuestOrder; });
     }
@@ -439,7 +512,7 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
         }
     }
 
-    bool IsQuestCompleted()
+    bool IsQuestCompleted() const
     {
         for (TSharedPtr<FQuestStepObjective> Objective : ObjectivesArray)
         {
@@ -463,7 +536,7 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
         return false;
     }
 
-    FQuestStepObjective GetCurrentObjective()
+    FQuestStepObjective GetCurrentObjective() const
     {
         if (!IsQuestCompleted())
         {
@@ -476,7 +549,7 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
         return FQuestStepObjective();
     }
 
-    TSharedPtr<FQuestStepObjective> GetCurrentObjectiveSharedPtr()
+    TSharedPtr<FQuestStepObjective> GetCurrentObjectiveSharedPtr() const
     {
         if (!IsQuestCompleted())
         {
@@ -508,12 +581,24 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
 };
 
 USTRUCT(BlueprintType)
+struct PCQUESTSYSTEM_API FQuestActorReference
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FGameplayTag ReferenceTag;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    AActor* ReferenceActor;
+};
+
+USTRUCT(BlueprintType)
 struct PCQUESTSYSTEM_API FQuestActorReferences
 {
     GENERATED_BODY()
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TArray<AActor*> QuestActors;
+    TArray<FQuestActorReference> QuestActors;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQuestActivated, FQuest, ActivatedQuest);
@@ -540,15 +625,15 @@ public:
         FOnQuestStepCompleted OnQuestStepCompletedDelegate;
 
     UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QuestManager")
-        void ActivateQuest(int QuestIDToActivate);
+        void ActivateQuest(int QuestIDToActivate, int StepIDToActivate = 0);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnAfterQuestActivated(int QuestIDToActivate);
+        void OnAfterQuestActivated(int QuestIDToActivate, bool bBroadcastEvent);
     UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "QuestManager")
         void ResetQuest(int QuestIDToActivate);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
         void SetCurrentActiveQuest(int QuestIDToActivate);
     UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "QuestManager")
-        void AddActiveQuest(int QuestIDToActivate);
+        void AddActiveQuest(int QuestIDToActivate, int StepIDToActivate = 0, bool bBroadcastEvent = true);
     UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "QuestManager")
         void RemoveActiveQuest(int QuestIDToRemove);
     UFUNCTION(BlueprintPure, Category = "QuestManager")
@@ -559,33 +644,32 @@ public:
         const TArray<FQuest> GetAllQuests();
 
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnArrivedToPlace(FGameplayTag ArrivedPlace);
+        void OnArrivedToPlace(FGameplayTag ArrivedPlace, APlayerController* ArrivedBy);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepArrivedToPlace(int StepID, int QuestID, FGameplayTag ArrivedPlace);
+        void OnQuestStepArrivedToPlace(int StepID, int QuestID, FGameplayTag ArrivedPlace, APlayerController* ArrivedBy);
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnEntityTalkedTo(FGameplayTag TalkedEntity);
+        void OnEntityTalkedTo(FGameplayTag TalkedEntity, APlayerController* TalkedBy);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepEntityTalkedTo(int StepID, int QuestID, FGameplayTag TalkedEntity);
+        void OnQuestStepEntityTalkedTo(int StepID, int QuestID, FGameplayTag TalkedEntity, APlayerController* TalkedBy);
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnEntityKilled(FGameplayTag EntityKilled);
+        void OnEntityKilled(FGameplayTag EntityKilled, APlayerController* KilledBy);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepEntityKilled(int StepID, int QuestID, FGameplayTag EntityKilled);
+        void OnQuestStepEntityKilled(int StepID, int QuestID, FGameplayTag EntityKilled, APlayerController* KilledBy);
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnItemGathered(FGameplayTag ItemGathered, float amountGathered);
+        void OnItemGathered(FGameplayTag ItemGathered, float amountGathered, APlayerController* GatheredBy);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepItemGathered(int StepID, int QuestID, FGameplayTag ItemGathered, float amountGathered);
+        void OnQuestStepItemGathered(int StepID, int QuestID, FGameplayTag ItemGathered, float amountGathered, APlayerController* GatheredBy);
     UFUNCTION(Server, Reliable, Category = "QuestManager")
-        void OnCatch(FGameplayTag CatchTag);
+        void OnCatch(FGameplayTag CatchTag, APlayerController* CatchedBy);
     UFUNCTION(NetMulticast, Reliable, Category = "QuestManager")
-        void OnQuestStepCatch(int StepID, int QuestID, FGameplayTag CatchTag);
+        void OnQuestStepCatch(int StepID, int QuestID, FGameplayTag CatchTag, APlayerController* CatchedBy);
 
     UFUNCTION()
     void OnRep_OnCurrentActiveQuest();
     
     UFUNCTION(Server, Reliable)
         void SpawnActor(TSubclassOf<AActor> ActorToSpawn, FVector WorldPositionToSpawn, FRotator WorldRotationToSpawn);
-    UFUNCTION(NetMulticast, reliable)
-        void AddAssociatedActorToQuestStepAfterTime(int StepQuestID, int QuestIDToGet, AActor* ActorToAdd);
+    AActor* GetStepQuestReference(int QuestID, FGameplayTag ReferenceTag);
 
     UFUNCTION(BlueprintPure, Category = "QuestManager")
     bool HasCurrentActiveQuest() const;
@@ -608,7 +692,7 @@ private:
     TSharedPtr<FQuest> GetQuestByID(int IDToGet) const;
     TSharedPtr<FQuestStepObjective> GetStepQuestByID(int IDToGet, TSharedPtr<FQuest> QuestToSearch);
 
-    void ActivateQuestObjectives(int QuestID);
+    void ActivateQuestObjectives(int QuestID, int StepIDToActivate = 0);
     void ActivateQuestReferences(int QuestID);
     void DeactivateQuestReferences(int QuestID);
     void OnQuestCompleted(TSharedPtr<FQuest> CompletedQuest);

@@ -16,6 +16,10 @@ UIconMarkerComponent::UIconMarkerComponent()
 
 UIconMarkerComponent::~UIconMarkerComponent()
 {
+    if (MarkerUMG.IsValid())
+    {
+        MarkerUMG->RemoveFromParent();
+    }
     MarkerUMG = nullptr;
 
     UPCQSBlueprintFunctionLibrary::RemoveIconMarkerComponent(this);
@@ -35,12 +39,12 @@ void UIconMarkerComponent::ActivateMarker()
         if (!MarkerUMG.IsValid())
         {
             MarkerUMG = CreateWidget<UIconMarkerUMG>(GetWorld(), MarkerUMGClass.Get());
+            MarkerUMG->SetMarkerIconImage(MarkerIcon);
+            MarkerUMG->SetMarkerOwner(GetOwner());
+            MarkerUMG->SetMarkerOffset(ActorOffset);
         }
 
-        bShowingOnScreen = true;
-        MarkerUMG->SetMarkerIconImage(MarkerIcon);
-        MarkerUMG->SetMarkerOwner(GetOwner());
-        MarkerUMG->SetMarkerOffset(ActorOffset);
+        bActive = true;
         MarkerUMG->AddToViewport();
         MarkerUMG->PlayWidgetFadeAnimation();
     }
@@ -48,7 +52,7 @@ void UIconMarkerComponent::ActivateMarker()
 
 void UIconMarkerComponent::DeactivateMarker()
 {
-    bShowingOnScreen = false;
+    bActive = false;
     if (MarkerUMG.IsValid())
     {
         MarkerUMG->RemoveFromParent();
@@ -57,17 +61,38 @@ void UIconMarkerComponent::DeactivateMarker()
 
 bool UIconMarkerComponent::ShouldShowOnScreen()
 {
-    return bShowOnScreen;
+    return bShowOnScreen && bActive;
 }
 
 bool UIconMarkerComponent::ShouldShowOnCompass()
 {
-    return bShowOnCompass;
+    return bShowOnCompass && bActive;
 }
 
 UTexture2D* UIconMarkerComponent::GetMarkerIcon()
 {
     return MarkerIcon;
+}
+
+bool UIconMarkerComponent::IsMarkerActive()
+{
+    return bActive;
+}
+
+void UIconMarkerComponent::ShowMarker() const
+{
+    if (MarkerUMG.IsValid())
+    {
+        MarkerUMG->AddToViewport();
+    }
+}
+
+void UIconMarkerComponent::HideMarker() const
+{
+    if (MarkerUMG.IsValid())
+    {
+        MarkerUMG->RemoveFromParent();
+    }
 }
 
 void UIconMarkerComponent::SetMarkerUMGToUse(TSubclassOf<UIconMarkerUMG> markerToUse)

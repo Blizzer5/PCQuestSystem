@@ -1,4 +1,4 @@
-// Copyright © Pedro Costa, 2021. All rights reserved
+// Copyright ï¿½ Pedro Costa, 2021. All rights reserved
 
 #pragma once
 
@@ -29,11 +29,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IconMarker")
 	void DeactivateMarker();
     UFUNCTION(BlueprintPure, Category = "IconMarker")
-        bool ShouldShowOnScreen();
+	bool ShouldShowOnScreen();
     UFUNCTION(BlueprintPure, Category = "IconMarker")
-        bool ShouldShowOnCompass();
+    bool ShouldShowOnCompass();
     UFUNCTION(BlueprintPure, Category = "IconMarker")
-		UTexture2D* GetMarkerIcon();
+	UTexture2D* GetMarkerIcon();
+	UFUNCTION(BlueprintPure, Category = "IconMarker")
+	bool IsMarkerActive();
+
+	void ShowMarker() const;
+	void HideMarker() const;
 
 	void SetMarkerUMGToUse(TSubclassOf<UIconMarkerUMG> markerToUse);
 public:
@@ -50,6 +55,6 @@ public:
     FVector ActorOffset;
 private:
     TSoftObjectPtr<UIconMarkerUMG> MarkerUMG;
-	bool bShowingOnScreen;
+	bool bActive;
 	
 };
