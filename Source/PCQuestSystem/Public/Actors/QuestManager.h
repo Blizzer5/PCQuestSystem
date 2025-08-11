@@ -162,8 +162,8 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
             if (IQuestObject* ActorAsQuestObject = Cast<IQuestObject>(AssociatedActor))
             {
                 ActorAsQuestObject->DeactivateObject();
+                ActorAsQuestObject->Execute_BP_DeactivateObject(AssociatedActor);
             }
-            IQuestObject::Execute_BP_DeactivateObject(AssociatedActor);
         }
     };
     

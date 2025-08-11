@@ -58,6 +58,10 @@ void AQuestManager::ResetQuest_Implementation(int QuestIDToActivate)
 
 void AQuestManager::AddActiveQuest_Implementation(int QuestIDToActivate, int StepIDToActivate, bool bBroadcastEvent)
 {
+    if (ActiveQuests.Contains(QuestIDToActivate))
+    {
+        return;
+    }
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("AddActiveQuest")));
     ActiveQuests.Add(QuestIDToActivate);
 
@@ -78,13 +82,10 @@ void AQuestManager::SetCurrentActiveQuest(int QuestIDToActivate)
 
 void AQuestManager::RemoveActiveQuest_Implementation(int QuestIDToRemove)
 {
-    auto Quest = AllQuests.FindByPredicate([&](const TSharedPtr<FQuest> quest)
+    ActiveQuests.Remove(QuestIDToRemove);
+    if (CurrentActiveQuest == QuestIDToRemove)
     {
-        return quest->QuestID == QuestIDToRemove;
-    });
-    if (Quest)
-    {
-        ActiveQuests.Remove(Quest->Get()->QuestID);
+        CurrentActiveQuest = -1;
     }
 }
 
