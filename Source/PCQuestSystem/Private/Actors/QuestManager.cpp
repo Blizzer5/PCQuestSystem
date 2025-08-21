@@ -7,12 +7,14 @@
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/Actor.h"
 #include "Interface/QuestObject.h"
+#include "Iris/ReplicationState/ReplicationStateUtil.h"
 
 
 AQuestManager::AQuestManager()
 {
     PrimaryActorTick.bCanEverTick = false;
     SetReplicates(true);
+    bAlwaysRelevant = true;
 }
 
 AQuestManager::~AQuestManager()
@@ -35,18 +37,15 @@ void AQuestManager::ActivateQuest_Implementation(int QuestIDToActivate, int Step
         {
             ResetQuest(QuestIDToActivate);
         }
-        AddActiveQuest(QuestIDToActivate, StepIDToActivate);
+        AddActiveQuest(QuestIDToActivate, !GetCurrentActiveQuestInfo().IsValid(), StepIDToActivate);
     }
 }
 
-void AQuestManager::OnAfterQuestActivated(int QuestIDToActivate, bool bBroadcastEvent)
+void AQuestManager::OnAfterQuestActivated(int QuestIDToActivate, bool bNewQuest)
 {
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("OnAfterQuestActivated")));
-    if (bBroadcastEvent)
-    {
-        TSharedPtr<FQuest> QuestToActivate = GetQuestByID(QuestIDToActivate);
-        OnQuestActivated.Broadcast(*QuestToActivate.Get());
-    }
+    TSharedPtr<FQuest> QuestToActivate = GetQuestByID(QuestIDToActivate);
+    OnQuestActivated.Broadcast(*QuestToActivate.Get(), bNewQuest);
 }
 
 void AQuestManager::ResetQuest_Implementation(int QuestIDToActivate)
@@ -56,44 +55,54 @@ void AQuestManager::ResetQuest_Implementation(int QuestIDToActivate)
     QuestToActivate->ResetQuest();
 }
 
-void AQuestManager::AddActiveQuest_Implementation(int QuestIDToActivate, int StepIDToActivate, bool bBroadcastEvent)
+void AQuestManager::AddActiveQuest_Implementation(int QuestIDToActivate, bool NewCurrentActiveQuest, int StepIDToActivate, bool bNewQuest)
 {
-    if (ActiveQuests.Contains(QuestIDToActivate))
-    {
-        return;
-    }
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("AddActiveQuest")));
-    ActiveQuests.Add(QuestIDToActivate);
+    if (!ActiveQuests.FindByPredicate([QuestIDToActivate](const FQuestStateInfo& QuestInfo){ return QuestInfo.QuestID == QuestIDToActivate;  }))
+    {
+        ActiveQuests.Add({ QuestIDToActivate, StepIDToActivate});
+    }
 
-    ActivateQuestObjectives(QuestIDToActivate, StepIDToActivate);
     ActivateQuestReferences(QuestIDToActivate);
-    SetCurrentActiveQuest(QuestIDToActivate);
-    OnAfterQuestActivated(QuestIDToActivate, bBroadcastEvent);
+    ActivateQuestObjectives(QuestIDToActivate, StepIDToActivate);
+    if (NewCurrentActiveQuest)
+    {
+        SetCurrentActiveQuest(QuestIDToActivate, StepIDToActivate);
+    }
+    OnAfterQuestActivated(QuestIDToActivate, bNewQuest);
 }
 
-void AQuestManager::SetCurrentActiveQuest(int QuestIDToActivate)
+void AQuestManager::SetCurrentActiveQuest(int QuestIDToActivate, int StepIDToActivate)
 {
     UKismetSystemLibrary::PrintString(this, FString::Printf(TEXT("SetCurrentActiveQuest")));
-    if (CurrentActiveQuest == -1)
+    for (FQuestStateInfo& ActiveQuest : ActiveQuests)
     {
-        CurrentActiveQuest = QuestIDToActivate;
+        ActiveQuest.CurrentActive = false;
+        if (ActiveQuest.IsValid() && ActiveQuest.QuestID == QuestIDToActivate)
+        {
+            ActiveQuest.CurrentStepQuestObjectID = StepIDToActivate;
+            ActiveQuest.CurrentActive = true;
+        }
     }
 }
 
 void AQuestManager::RemoveActiveQuest_Implementation(int QuestIDToRemove)
 {
-    ActiveQuests.Remove(QuestIDToRemove);
-    if (CurrentActiveQuest == QuestIDToRemove)
+    for (int i = ActiveQuests.Num() - 1; i >= 0; i--)
     {
-        CurrentActiveQuest = -1;
+        if (ActiveQuests[i].QuestID == QuestIDToRemove)
+        {
+            ActiveQuests.RemoveAt(i);
+            break;
+        }
     }
 }
 
 void AQuestManager::OnArrivedToPlace_Implementation(FGameplayTag ArrivedPlace, APlayerController* ArrivedBy)
 {
-    for (int QuestID : ActiveQuests)
+    for (FQuestStateInfo QuestInfo : ActiveQuests)
     {
-        auto Quest = GetQuestByID(QuestID);
+        auto Quest = GetQuestByID(QuestInfo.QuestID);
         for (TSharedPtr<FQuestStepObjective> QuestObjective : Quest.Get()->ObjectivesArray)
         {
             if (!QuestObjective->IsCompleted() && QuestObjective->QuestStepType == EQuestStepType::GoTo)
@@ -120,9 +129,9 @@ void AQuestManager::OnArrivedToPlace_Implementation(FGameplayTag ArrivedPlace, A
 
 void AQuestManager::OnEntityTalkedTo_Implementation(FGameplayTag TalkedEntity, APlayerController* TalkedBy)
 {
-    for (int QuestID : ActiveQuests)
+    for (FQuestStateInfo QuestInfo : ActiveQuests)
     {
-        auto Quest = GetQuestByID(QuestID);
+        auto Quest = GetQuestByID(QuestInfo.QuestID);
         for (TSharedPtr<FQuestStepObjective> QuestObjective : Quest.Get()->ObjectivesArray)
         {
             if (!QuestObjective->IsCompleted() && QuestObjective->QuestStepType == EQuestStepType::TalkWith)
@@ -149,9 +158,9 @@ void AQuestManager::OnEntityTalkedTo_Implementation(FGameplayTag TalkedEntity, A
 
 void AQuestManager::OnEntityKilled_Implementation(FGameplayTag EntityKilled, APlayerController* KilledBy)
 {
-    for (int QuestID : ActiveQuests)
+    for (FQuestStateInfo QuestInfo : ActiveQuests)
     {
-        auto Quest = GetQuestByID(QuestID);
+        auto Quest = GetQuestByID(QuestInfo.QuestID);
         for (TSharedPtr<FQuestStepObjective> QuestObjective : Quest.Get()->ObjectivesArray)
         {
             if (!QuestObjective->IsCompleted() && QuestObjective->QuestStepType == EQuestStepType::Kill)
@@ -178,9 +187,9 @@ void AQuestManager::OnEntityKilled_Implementation(FGameplayTag EntityKilled, APl
 
 void AQuestManager::OnItemGathered_Implementation(FGameplayTag ItemGathered, float amountGathered, APlayerController* GatheredBy)
 {
-    for (int QuestID : ActiveQuests)
+    for (FQuestStateInfo QuestInfo : ActiveQuests)
     {
-        auto Quest = GetQuestByID(QuestID);
+        auto Quest = GetQuestByID(QuestInfo.QuestID);
         for (TSharedPtr<FQuestStepObjective> QuestObjective : Quest.Get()->ObjectivesArray)
         {
             if (!QuestObjective->IsCompleted() && QuestObjective->QuestStepType == EQuestStepType::Gather)
@@ -207,9 +216,9 @@ void AQuestManager::OnItemGathered_Implementation(FGameplayTag ItemGathered, flo
 
 void AQuestManager::OnCatch_Implementation(FGameplayTag CatchTag, APlayerController* CatchedBy)
 {
-    for (int QuestID : ActiveQuests)
+    for (FQuestStateInfo QuestInfo : ActiveQuests)
     {
-        auto Quest = GetQuestByID(QuestID);
+        auto Quest = GetQuestByID(QuestInfo.QuestID);
         for (TSharedPtr<FQuestStepObjective> QuestObjective : Quest.Get()->ObjectivesArray)
         {
             if (!QuestObjective->IsCompleted() && QuestObjective->QuestStepType == EQuestStepType::Catch)
@@ -237,9 +246,9 @@ void AQuestManager::OnCatch_Implementation(FGameplayTag CatchTag, APlayerControl
 const TArray<FQuest> AQuestManager::GetActiveQuests()
 {
     TArray<FQuest> ActiveQuestsPointers;
-    for (int QuestID : ActiveQuests)
+    for (FQuestStateInfo QuestInfo : ActiveQuests)
     {
-        ActiveQuestsPointers.Add(*GetQuestByID(QuestID));
+        ActiveQuestsPointers.Add(*GetQuestByID(QuestInfo.QuestID));
     }
     return ActiveQuestsPointers;
 }
@@ -254,20 +263,30 @@ const TArray<FQuest> AQuestManager::GetAllQuests()
     return AllQuestsPointers;
 }
 
+TArray<FQuest> AQuestManager::GetAllCompletedQuests()
+{
+    TArray<FQuest> AllCompletedQuests;
+    for (int QuestID : CompletedQuests)
+    {
+        AllCompletedQuests.Add(*GetQuestByID(QuestID).Get());
+    }
+    return AllCompletedQuests;
+}
+
 const FQuestStepObjective AQuestManager::GetCurrentQuestCurrentObjective()
 {
-    if (CurrentActiveQuest != -1)
+    if (FQuestStateInfo QuestState = GetCurrentActiveQuestInfo(); QuestState.IsValid())
     {
-        return GetQuestByID(CurrentActiveQuest)->GetCurrentObjective();
+        return GetQuestByID(QuestState.QuestID)->GetCurrentObjective();
     }
     return FQuestStepObjective();
 }
 
 FQuestStepObjective AQuestManager::GetCurrentQuestCurrentObjective() const
 {
-    if (CurrentActiveQuest != -1)
+    if (FQuestStateInfo QuestState = GetCurrentActiveQuestInfo(); QuestState.IsValid())
     {
-        return GetQuestByID(CurrentActiveQuest)->GetCurrentObjective();
+        return GetQuestByID(QuestState.QuestID)->GetCurrentObjective();
     }
     return FQuestStepObjective();
 }
@@ -281,9 +300,36 @@ void AQuestManager::AddAssociatedActorToQuestStep(int StepQuestID, int QuestIDTo
     StepQuest->AddIconMarkerToAssociatedActor();
 }
 
+void AQuestManager::RemoveAllActiveQuests_Implementation()
+{
+    for (int i = ActiveQuests.Num() - 1; i >= 0; i--)
+    {
+        GetQuestByID(ActiveQuests[i].QuestID)->ClearQuest();
+        ActiveQuests.RemoveAt(i);
+    }
+}
+
+const FQuestStateInfo AQuestManager::GetCurrentActiveQuestInfo() const
+{
+    for (auto ActiveQuest : ActiveQuests)
+    {
+        if (ActiveQuest.CurrentActive)
+        {
+            return ActiveQuest;
+        }
+    }
+    return FQuestStateInfo();
+}
+
+const TArray<FQuestStateInfo> AQuestManager::GetAllActiveQuestsInfo()
+{
+    return ActiveQuests;
+}
+
 const FQuest AQuestManager::GetCurrentActiveQuest()
 {
-    return CurrentActiveQuest != -1 ? *GetQuestByID(CurrentActiveQuest) : FQuest();
+    FQuestStateInfo QuestState = GetCurrentActiveQuestInfo();
+    return QuestState.IsValid() ? *GetQuestByID(QuestState.QuestID) : FQuest();
 }
 
 void AQuestManager::SpawnActor_Implementation(TSubclassOf<AActor> ActorToSpawn, FVector WorldPositionToSpawn, FRotator WorldRotationToSpawn)
@@ -333,9 +379,12 @@ void AQuestManager::OnQuestStepCatch_Implementation(int StepID, int QuestID, FGa
     GatherObjective.Get()->OnCatched(CatchedBy);
 }
 
-void AQuestManager::OnRep_OnCurrentActiveQuest()
+void AQuestManager::OnRep_OnActiveQuests()
 {
-    AddActiveQuest(CurrentActiveQuest);
+    for (auto ActiveQuest : ActiveQuests)
+    {
+        AddActiveQuest(ActiveQuest.QuestID, ActiveQuest.CurrentActive, ActiveQuest.CurrentStepQuestObjectID, false);
+    }
 }
 
 AActor* AQuestManager::GetStepQuestReference(int QuestID, FGameplayTag ReferenceTag)
@@ -355,7 +404,7 @@ AActor* AQuestManager::GetStepQuestReference(int QuestID, FGameplayTag Reference
 
 bool AQuestManager::HasCurrentActiveQuest() const
 {
-    return CurrentActiveQuest != -1;
+    return GetCurrentActiveQuestInfo().IsValid();
 }
 
 bool AQuestManager::IsQuestCompleted(FQuest QuestToCheck)
@@ -365,7 +414,8 @@ bool AQuestManager::IsQuestCompleted(FQuest QuestToCheck)
 
 bool AQuestManager::IsCurrentActiveQuest(FQuest QuestToCompare)
 {
-    return CurrentActiveQuest != -1 ? QuestToCompare.QuestID == CurrentActiveQuest : false;
+    FQuestStateInfo CurrentQuestState = GetCurrentActiveQuestInfo();
+    return CurrentQuestState.IsValid()? QuestToCompare.QuestID == CurrentQuestState.QuestID : false;
 }
 
 bool AQuestManager::IsCurrentQuestStepObjective(FQuestStepObjective QuestStepToCompare)
@@ -411,8 +461,8 @@ void AQuestManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-    DOREPLIFETIME_CONDITION_NOTIFY(AQuestManager, CurrentActiveQuest, COND_InitialOnly, REPNOTIFY_Always);
     DOREPLIFETIME_CONDITION_NOTIFY(AQuestManager, ActiveQuests, COND_InitialOnly, REPNOTIFY_Always);
+    DOREPLIFETIME_CONDITION_NOTIFY(AQuestManager, CompletedQuests, COND_InitialOnly, REPNOTIFY_Always);
 }
 
 
@@ -485,8 +535,8 @@ void AQuestManager::DeactivateQuestReferences(int QuestID)
             {
                 if (IQuestObject* ActorAsQuestObject = Cast<IQuestObject>(QuestActor.ReferenceActor))
                 {
-                    ActorAsQuestObject->DeactivateObject();
-                    IQuestObject::Execute_BP_DeactivateObject(QuestActor.ReferenceActor);
+                    ActorAsQuestObject->DeactivateObject(false);
+                    IQuestObject::Execute_BP_DeactivateObject(QuestActor.ReferenceActor, false);
                 }
             }
         }
@@ -505,6 +555,7 @@ void AQuestManager::OnQuestCompletedNextTick_Implementation(int CompletedQuestID
     TSharedPtr<FQuest> CompletedQuest = GetQuestByID(CompletedQuestID);
     OnQuestCompletedDelegate.Broadcast(*CompletedQuest.Get());
     DeactivateQuestReferences(CompletedQuestID);
+    CompletedQuests.Add(CompletedQuestID);
 
     // TODO: Maybe we want to put the next main quest as the current quest?
 }
@@ -517,6 +568,14 @@ void AQuestManager::OnStepQuestCompleted_Implementation(int CompletedStepQuestID
     if (NextObjective.IsValid())
     {
         NextObjective->Activate(GetWorld(), this);
+
+        for (FQuestStateInfo& ActiveQuest : ActiveQuests)
+        {
+            if (ActiveQuest.QuestID == QuestIDWhereStepBelongs)
+            {
+                ActiveQuest.CurrentStepQuestObjectID++;
+            }
+        }
     }
     CompletedStepQuest->SetCompleted();
     OnQuestStepCompletedDelegate.Broadcast(*CompletedStepQuest.Get(), *QuestWhereStepBelongs.Get());
@@ -533,13 +592,13 @@ void FQuestStepObjective::AddIconMarkerToAssociatedActor()
 {
     if (ObjectiveMarkerUMGInformation.bCreateMarker)
     {
-        UIconMarkerComponent* iconMarkerComponent = NewObject<UIconMarkerComponent>(ActorsAssociated[ActorsAssociated.Num() - 1], "");
-        iconMarkerComponent->SetMarkerUMGToUse(ObjectiveMarkerUMGInformation.ObjectiveMarkerUMGClass);
-        iconMarkerComponent->bShowOnCompass = ObjectiveMarkerUMGInformation.bShowOnCompass;
-        iconMarkerComponent->bShowOnScreen = ObjectiveMarkerUMGInformation.bShowOnScreen;
-        iconMarkerComponent->MarkerIcon = ObjectiveMarkerUMGInformation.IconToUse;
-        iconMarkerComponent->ActorOffset = ObjectiveMarkerUMGInformation.MarkerToActorOffset;
-        iconMarkerComponent->RegisterComponent();
+        UIconMarkerComponent* IconMarkerComponent = Cast<UIconMarkerComponent>(ActorsAssociated[ActorsAssociated.Num() - 1]->AddComponentByClass(UIconMarkerComponent::StaticClass(), false, FTransform(), false));
+        IconMarkerComponent->SetIsReplicated(true);
+        IconMarkerComponent->SetMarkerUMGToUse(ObjectiveMarkerUMGInformation.ObjectiveMarkerUMGClass);
+        IconMarkerComponent->bShowOnCompass = ObjectiveMarkerUMGInformation.bShowOnCompass;
+        IconMarkerComponent->bShowOnScreen = ObjectiveMarkerUMGInformation.bShowOnScreen;
+        IconMarkerComponent->MarkerIcon = ObjectiveMarkerUMGInformation.IconToUse;
+        IconMarkerComponent->ActorOffset = ObjectiveMarkerUMGInformation.MarkerToActorOffset;
     }
 }
 
@@ -584,9 +643,14 @@ void FQuestStepTalkWithObjective::Activate(UWorld* WorldContext, AQuestManager* 
     {
         QuestManager->SpawnActor(PawnToSpawnWhenActive, WorldPositionToSpawn, WorldRotationToSpawn);
 
-        if (QuestManager->GetLastSpawnedActor())
+        if (AActor* SpawnedActor = QuestManager->GetLastSpawnedActor())
         {
-            QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, QuestManager->GetLastSpawnedActor());
+            SpawnedActors.Add(SpawnedActor);
+            if (IQuestObject* ActorAsQuestObject = Cast<IQuestObject>(SpawnedActor))
+            {
+                ActorAsQuestObject->SetTag(EntityToTalkWith);
+            }
+            QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, SpawnedActor);
         }
     }
 
@@ -611,10 +675,11 @@ void FQuestStepKillObjective::Activate(UWorld* WorldContext, AQuestManager* Ques
             SpawnLocation.X += FMath::RandRange(-SpawnInformation.SpawnRange, SpawnInformation.SpawnRange);
             SpawnLocation.Y += FMath::RandRange(-SpawnInformation.SpawnRange, SpawnInformation.SpawnRange);
             QuestManager->SpawnActor(SubClassActor, SpawnLocation, FRotator::ZeroRotator);
-
-            if (QuestManager->GetLastSpawnedActor())
+           
+            if (AActor* SpawnedActor = QuestManager->GetLastSpawnedActor())
             {
-                QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, QuestManager->GetLastSpawnedActor());
+                SpawnedActors.Add(SpawnedActor);
+                QuestManager->AddAssociatedActorToQuestStep(StepObjectiveInsideQuestOrder, ParentQuestID, SpawnedActor);
             }
         }
     }
@@ -655,6 +720,6 @@ void FQuest::DeactivateObjective(TSharedPtr<FQuestStepObjective> ObjectiveToDeac
 {
     if (ObjectiveToDeactivate.IsValid())
     {
-        ObjectiveToDeactivate->Deactivate();
+        ObjectiveToDeactivate->Deactivate(false);
     }
 }

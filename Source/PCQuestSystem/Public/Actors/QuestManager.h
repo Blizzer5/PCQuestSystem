@@ -45,6 +45,42 @@ enum class ERewardTypes : uint8
 };
 
 USTRUCT(BlueprintType)
+struct FQuestStateInfo
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    int QuestID = -1;
+    UPROPERTY()
+    int CurrentStepQuestObjectID = -1;
+    UPROPERTY()
+    bool CurrentActive = false;
+
+    void Reset()
+    {
+        QuestID = -1;
+        CurrentStepQuestObjectID = -1;
+        CurrentActive = false;
+    }
+    
+    bool IsValid() const
+    {
+        return QuestID > -1 && CurrentStepQuestObjectID > -1;
+    }
+
+    void operator=(const FQuestStateInfo& QuestInfo)
+    {
+        QuestID = QuestInfo.QuestID;
+        CurrentStepQuestObjectID = QuestInfo.CurrentStepQuestObjectID;
+    }
+
+    bool operator==(const FQuestStateInfo& QuestInfo) const
+    {
+        return QuestID == QuestInfo.QuestID && CurrentStepQuestObjectID == QuestInfo.CurrentStepQuestObjectID;
+    }
+};
+
+USTRUCT(BlueprintType)
 struct PCQUESTSYSTEM_API FIconMarkerInformation
 {
     GENERATED_BODY()
@@ -139,6 +175,9 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = QuestStepObjective)
     FText Description;
 
+    UPROPERTY(BlueprintReadWrite, Category = QuestStepObjective)
+    TArray<AActor*> SpawnedActors;
+
     int ParentQuestID;
 
     FString SplitEnumString(FString EnumString);
@@ -150,7 +189,7 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
         ActivateActorMarker();
     };
     
-    virtual void Deactivate()
+    virtual void Deactivate(bool bReset)
     {
         for (AActor* AssociatedActor : ActorsAssociated)
         {
@@ -161,8 +200,8 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
             
             if (IQuestObject* ActorAsQuestObject = Cast<IQuestObject>(AssociatedActor))
             {
-                ActorAsQuestObject->DeactivateObject();
-                ActorAsQuestObject->Execute_BP_DeactivateObject(AssociatedActor);
+                ActorAsQuestObject->DeactivateObject(bReset);
+                ActorAsQuestObject->Execute_BP_DeactivateObject(AssociatedActor, bReset);
             }
         }
     };
@@ -185,7 +224,7 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
 
     void ResetStepQuest()
     {
-        Deactivate();
+        Deactivate(true);
         bIsCompleted = false;
     }
 
@@ -206,14 +245,24 @@ struct PCQUESTSYSTEM_API FQuestStepObjective
     void SetCompleted()
     {
         bIsCompleted = true;
-        Deactivate();
+        Deactivate(false);
     };
 
     void AddIconMarkerToAssociatedActor();
 
-    void AddAssociatedActor(AActor* actorToAdd)
+    void AddAssociatedActor(AActor* ActorToAdd)
     {
-        ActorsAssociated.Add(actorToAdd);
+        ActorsAssociated.Add(ActorToAdd);
+    }
+
+    void RemoveAllAssociatedActor()
+    {
+        ActorsAssociated.Empty();
+        for (const auto SpawnedActor : SpawnedActors)
+        {
+            SpawnedActor->Destroy();
+        }
+        SpawnedActors.Empty();
     }
 
     bool IsValid()
@@ -512,6 +561,15 @@ struct PCQUESTSYSTEM_API FQuest : public FTableRowBase
         }
     }
 
+    void ClearQuest()
+    {
+        ResetQuest();
+        for (TSharedPtr<FQuestStepObjective> Objective : ObjectivesArray)
+        {
+            Objective->RemoveAllAssociatedActor();
+        }
+    }
+
     bool IsQuestCompleted() const
     {
         for (TSharedPtr<FQuestStepObjective> Objective : ObjectivesArray)
@@ -601,7 +659,7 @@ struct PCQUESTSYSTEM_API FQuestActorReferences
     TArray<FQuestActorReference> QuestActors;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQuestActivated, FQuest, ActivatedQuest);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnQuestActivated, FQuest, ActivatedQuest, bool, bNewQuest);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQuestCompleted, FQuest, CompletedQuest);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnQuestStepCompleted, FQuestStepObjective, CompletedStepQuest, FQuest, QuestWhereStepBelongs);
 
@@ -627,21 +685,29 @@ public:
     UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QuestManager")
         void ActivateQuest(int QuestIDToActivate, int StepIDToActivate = 0);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void OnAfterQuestActivated(int QuestIDToActivate, bool bBroadcastEvent);
+        void OnAfterQuestActivated(int QuestIDToActivate, bool bNewQuest);
     UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "QuestManager")
         void ResetQuest(int QuestIDToActivate);
     UFUNCTION(BlueprintCallable, Category = "QuestManager")
-        void SetCurrentActiveQuest(int QuestIDToActivate);
+        void SetCurrentActiveQuest(int QuestIDToActivate, int StepIDToActivate = 0);
     UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "QuestManager")
-        void AddActiveQuest(int QuestIDToActivate, int StepIDToActivate = 0, bool bBroadcastEvent = true);
+        void AddActiveQuest(int QuestIDToActivate, bool NewCurrentActiveQuest, int StepIDToActivate = 0, bool bNewQuest = true);
     UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "QuestManager")
         void RemoveActiveQuest(int QuestIDToRemove);
+    UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QuestManager")
+        void RemoveAllActiveQuests();
+    UFUNCTION(BlueprintPure, Category = "QuestManager")
+        const FQuestStateInfo GetCurrentActiveQuestInfo() const;
+    UFUNCTION(BlueprintPure, Category = "QuestManager")
+        const TArray<FQuestStateInfo> GetAllActiveQuestsInfo();
     UFUNCTION(BlueprintPure, Category = "QuestManager")
         const FQuest GetCurrentActiveQuest();
     UFUNCTION(BlueprintPure, Category = "QuestManager")
         const TArray<FQuest> GetActiveQuests();
     UFUNCTION(BlueprintPure, Category = "QuestManager")
         const TArray<FQuest> GetAllQuests();
+    UFUNCTION(BlueprintPure, Category = "QuestManager")
+        TArray<FQuest> GetAllCompletedQuests();
 
     UFUNCTION(Server, Reliable, Category = "QuestManager")
         void OnArrivedToPlace(FGameplayTag ArrivedPlace, APlayerController* ArrivedBy);
@@ -665,7 +731,7 @@ public:
         void OnQuestStepCatch(int StepID, int QuestID, FGameplayTag CatchTag, APlayerController* CatchedBy);
 
     UFUNCTION()
-    void OnRep_OnCurrentActiveQuest();
+    void OnRep_OnActiveQuests();
     
     UFUNCTION(Server, Reliable)
         void SpawnActor(TSubclassOf<AActor> ActorToSpawn, FVector WorldPositionToSpawn, FRotator WorldRotationToSpawn);
@@ -702,10 +768,10 @@ private:
     void OnStepQuestCompleted(int CompletedStepQuestID, int QuestIDWhereStepBelongs);
     FQuestStepObjective GetCurrentQuestCurrentObjective() const;
 private:
-    UPROPERTY(ReplicatedUsing = OnRep_OnCurrentActiveQuest)
-    int CurrentActiveQuest = -1;
+    UPROPERTY(Replicated = OnRep_OnActiveQuests)
+    TArray<FQuestStateInfo> ActiveQuests = {};
     UPROPERTY(Replicated)
-    TArray<int> ActiveQuests = {};
+    TArray<int> CompletedQuests = {};
     
     TArray<TSharedPtr<FQuest>> AllQuests;
     UPROPERTY()

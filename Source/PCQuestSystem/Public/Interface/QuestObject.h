@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "UObject/Interface.h"
 #include "QuestObject.generated.h"
 
@@ -21,7 +22,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void BP_ActivateObject();
 	
-	virtual void DeactivateObject() {};
+	virtual void DeactivateObject(bool bReset) {};
 	UFUNCTION(BlueprintImplementableEvent)
-	void BP_DeactivateObject();
+	void BP_DeactivateObject(bool bReset);
+
+	virtual void SetTag(FGameplayTag Tag) {};
 };
