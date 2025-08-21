@@ -768,7 +768,7 @@ private:
     void OnStepQuestCompleted(int CompletedStepQuestID, int QuestIDWhereStepBelongs);
     FQuestStepObjective GetCurrentQuestCurrentObjective() const;
 private:
-    UPROPERTY(Replicated = OnRep_OnActiveQuests)
+    UPROPERTY(ReplicatedUsing = OnRep_OnActiveQuests)
     TArray<FQuestStateInfo> ActiveQuests = {};
     UPROPERTY(Replicated)
     TArray<int> CompletedQuests = {};
